@@ -67,6 +67,9 @@ that moves every morning:
 | Four ways of typing a Lagos number are one account | `toE164` |
 | An address without a landmark is never saved | `validateAddress` |
 | Code limits are enforced in the verifier, not the form | `otp.ts` |
+| An order is a snapshot; the catalog cannot rewrite it later | `createOrder` |
+| An order cannot skip a stage, or move backwards | `ORDER_FLOW`, `advance` |
+| An order already with the rider cannot be cancelled by a button | `ORDER_FLOW` |
 | The volume discount belongs to the basket's weight, not to the screen that filled it | `priceBasket`, `volumeDiscount` |
 | A discount is authorised once and never clawed back by a light pack | `reconcileLine`'s `discountBps` |
 | Totals never owe kobo | the discount floors to whole naira |
@@ -95,6 +98,7 @@ src/
     box/                  Build Your Box — live tier progress (client)
     meals/                Shop by Meal, and a builder per dish (client)
     basket/               the basket, priced by the engine
+    account/orders/       order history, and one order with its tracker
     checkout/             five steps; contact, delivery and schedule are live
     orders/               honest empty state until orders exist
     globals.css           design tokens, glass, motion
@@ -116,6 +120,7 @@ src/
     pricing.ts            THE ENGINE — weight, prices, tolerance, box, meals
     cart.ts               basket reducer, aggregate stock, persistence
     delivery.ts           zones, fees, cut-off, slots
+    orders.ts             order snapshot + the status machine
     seed.ts               placeholder catalog
 supabase/migrations/      schema with RLS
 ```
@@ -172,16 +177,26 @@ an 80ms opacity fade — state still confirms, nothing travels.
   basket charges — `priceBox` is now `priceBasket` under another name. Meal
   quantities scale with the serving count while hand-adjustments survive it.
 
-**Not done yet:** payment. The checkout's pay button is drawn, priced and
-inert, and says so on screen.
+- M4: orders. Checkout places a real order, unpaid, settled with the rider on
+  delivery — which is how most of Lagos buys fish. An order is a *snapshot*:
+  names and prices are copied into it, so tomorrow's price rise cannot rewrite
+  yesterday's receipt. Every legal status move is declared in `ORDER_FLOW`, so
+  an order cannot skip from `sourcing` to `delivered` because a screen called
+  the wrong function. The tracker shows five stages, not all nine we run.
+
+**Not done yet:** payment, deliberately. `pending_payment -> paid` is already a
+legal move; connecting a gateway is a fifth checkout step and nothing else.
 
 **Two things are stand-ins, both clearly marked on screen.** Verification
 codes are shown in the page rather than sent, behind the `SmsSender` interface
 that Termii implements. The catalog is `seed.ts` rather than Supabase, behind
 the same types. Neither is a rewrite — each is one object to replace.
 
-**Next — M4:** Paystack with webhook verification, and the order state
-machine.
+**Next:** the packing room. Orders currently live in one browser's
+localStorage, which means the shop cannot see them — every screen is built, but
+the table behind them is not. That is Supabase, and then an admin view that
+moves orders along for real instead of the labelled stand-in buttons on the
+order page. Paystack after that.
 
 All catalog data is **placeholder**. Prices, stock, ratings, the ±8% band, zone
 fees, the 11 AM cut-off, the box tiers (3 kg → 5%, 5 kg → 10%) and the per-serving

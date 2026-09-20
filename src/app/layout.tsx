@@ -4,6 +4,7 @@ import { Fraunces, Plus_Jakarta_Sans } from "next/font/google";
 import { AccountProvider } from "@/components/AccountProvider";
 import { BottomNav } from "@/components/BottomNav";
 import { CartProvider } from "@/components/CartProvider";
+import { OrdersProvider } from "@/components/OrdersProvider";
 import { ToastProvider } from "@/components/Toast";
 
 import "./globals.css";
@@ -47,12 +48,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${display.variable} ${sans.variable}`}>
       <body>
         <AccountProvider>
+          <OrdersProvider>
           <CartProvider>
             <ToastProvider>
               {children}
               <BottomNav />
             </ToastProvider>
           </CartProvider>
+          </OrdersProvider>
         </AccountProvider>
       </body>
     </html>

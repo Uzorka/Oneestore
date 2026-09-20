@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { BOTTOM_CLEARANCE, Container } from "@/components/Container";
 import { CutoffBanner } from "@/components/CutoffBanner";
-import { Artwork } from "@/components/Artwork";
+import { HeroVideo } from "@/components/HeroVideo";
 import { ProductCard } from "@/components/ProductCard";
 import { TopBar } from "@/components/TopBar";
 import { ButtonLink } from "@/components/ui/Button";
@@ -67,12 +67,11 @@ export default function HomePage() {
             </div>
           </div>
 
-          <Artwork
-            kind="fish"
-            alt="Fresh fish, landed this morning"
-            seed="hero"
-            className="hidden h-[380px] rounded-[26px] lg:block lg:flex-1 xl:h-[440px]"
-          />
+          {/*
+            The film shows on every screen now — on a phone as a poster frame
+            that loads nothing until it is tapped. See HeroVideo for why.
+          */}
+          <HeroVideo className="h-[220px] md:h-[300px] lg:h-[380px] lg:flex-1 xl:h-[440px]" />
         </Container>
       </section>
 

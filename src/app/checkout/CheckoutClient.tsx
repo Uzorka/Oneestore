@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { useAccount } from "@/components/AccountProvider";
 import { useCart } from "@/components/CartProvider";
+import { useOrders } from "@/components/OrdersProvider";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatAddress, validateAddress } from "@/lib/address";
@@ -14,23 +16,26 @@ import { ZONES, availableSlots, deliveryDays, deliveryFeeKobo, findZone } from "
 import { formatNaira, formatWeight } from "@/lib/money";
 import { resendInSeconds } from "@/lib/otp";
 import { formatNigerianMobile, maskNigerianMobile, phoneError, toE164 } from "@/lib/phone";
+import { createOrder } from "@/lib/orders";
+import { toCartLines } from "@/lib/cart";
 import { productMap } from "@/lib/seed";
 
 /**
- * Checkout, in five progressive steps.
+ * Checkout, in four progressive steps.
  *
- * Contact, Delivery and Schedule are live. Payment and Review are drawn but
- * inert, because Paystack is the next milestone — the step indicator shows
- * them so the customer can see how far they have to go, which is the whole
- * reason for splitting a long form into steps.
+ * All four are live. Orders are placed unpaid and settled with the rider on
+ * delivery — which is how most of Lagos buys fish anyway, and why there is no
+ * payment step to walk through. When a gateway is connected it becomes a fifth
+ * step here and a `pending_payment -> paid` move in the order machine; nothing
+ * else about this flow changes.
  *
  * What is typed survives moving between steps, and validation is inline: a
  * bad phone number says so when the customer leaves the field, not after they
  * have filled in everything else.
  */
 
-const STEPS = ["Contact", "Delivery", "Schedule", "Payment", "Review"] as const;
-type StepIndex = 0 | 1 | 2 | 3 | 4;
+const STEPS = ["Contact", "Delivery", "Schedule", "Confirm"] as const;
+type StepIndex = 0 | 1 | 2 | 3;
 
 const EMPTY_DRAFT: AddressDraft = {
   zoneId: "",
@@ -43,6 +48,8 @@ const EMPTY_DRAFT: AddressDraft = {
 
 export function CheckoutClient() {
   const { state, dispatch, ready: cartReady } = useCart();
+  const { place } = useOrders();
+  const router = useRouter();
   const account = useAccount();
   const catalog = useMemo(() => productMap(), []);
 
@@ -64,10 +71,54 @@ export function CheckoutClient() {
   const [slotDate, setSlotDate] = useState<string | null>(null);
   const [slotWindow, setSlotWindow] = useState<string | null>(null);
 
+  // Placing
+  const [placing, setPlacing] = useState(false);
+
   const totals = priceCart(state, catalog);
   const zone = draft.zoneId === "" ? undefined : findZone(draft.zoneId);
   const deliveryKobo = zone === undefined ? 0 : deliveryFeeKobo(zone, totals.payableKobo);
   const totalKobo = totals.payableKobo + deliveryKobo;
+
+  /**
+   * Turn the basket into an order.
+   *
+   * The basket is cleared only once the order exists, and in that order: if
+   * something threw between the two, a customer with an empty basket and no
+   * order would have lost everything they picked.
+   */
+  function placeOrder() {
+    if (chosenSlot === undefined || slotDate === null || account.phone === null) return;
+
+    setPlacing(true);
+
+    const order = createOrder({
+      lines: toCartLines(state),
+      productsById: catalog,
+      phone: account.phone,
+      address: { ...draft, id: `addr-${Date.now()}`, isDefault: false },
+      zoneId: draft.zoneId,
+      slotDate,
+      slotWindowLabel: chosenSlot.windowLabel,
+      at: Date.now(),
+    });
+
+    place(order);
+    dispatch({ type: "clear" });
+    router.push(`/account/orders/${order.id}?placed=1`);
+  }
+
+  /*
+    The basket's zone is a guess the customer made before there was an
+    address; the address's zone is the fact. Once they differ the basket is
+    wrong, and a delivery fee that changes between the basket and the order is
+    exactly the sort of surprise that loses a sale — so the fact wins, and the
+    basket is corrected to match.
+  */
+  useEffect(() => {
+    if (draft.zoneId !== "" && draft.zoneId !== state.zoneId) {
+      dispatch({ type: "setZone", zoneId: draft.zoneId });
+    }
+  }, [draft.zoneId, state.zoneId, dispatch]);
 
   const errors: AddressErrors = validateAddress(draft);
   const cooldown = resendInSeconds(account.challenge, Date.now());
@@ -516,20 +567,15 @@ export function CheckoutClient() {
           )}
 
           <Button size="lg" fullWidth disabled={chosenSlot === undefined} onClick={() => setStep(3)}>
-            {chosenSlot === undefined ? "Pick a day and window" : "Continue to payment"}
+            {chosenSlot === undefined ? "Pick a day and window" : "Review your order"}
           </Button>
         </section>
       )}
 
-      {/* 4 and 5 — Payment and Review, next milestone */}
+      {/* 4 — Confirm. This is where an order becomes real. */}
       {step === 3 && (
         <section className="animate-rise flex flex-col gap-3 rounded-card border border-line bg-paper p-4">
-          <h2 className="font-display text-[19px] font-semibold md:text-[23px]">Payment</h2>
-          <p className="text-[12.5px] leading-relaxed text-ink-soft">
-            Paystack — card, bank transfer, USSD — and pay-on-delivery are the next milestone.
-            Everything up to this point is real: your number is verified, your address is saved, and
-            your slot is held.
-          </p>
+          <h2 className="font-display text-[19px] font-semibold md:text-[23px]">Confirm your order</h2>
 
           <div className="flex flex-col gap-2 rounded-xl bg-sand p-3">
             <SummaryRow label="Delivering to" value={formatAddress({ ...draft, id: "d", isDefault: false })} />
@@ -548,16 +594,29 @@ export function CheckoutClient() {
           </div>
 
           <div className="flex items-baseline gap-2 pt-1">
-            <span className="flex-1 text-sm font-bold">To pay</span>
+            <span className="flex-1 text-sm font-bold">To pay on delivery</span>
             <span className="font-display text-[23px] font-semibold">{formatNaira(totalKobo)}</span>
           </div>
 
-          <Button size="lg" fullWidth disabled>
-            Pay {formatNaira(totalKobo)}
-          </Button>
-          <span className="text-center text-[10.5px] text-ink-muted">
-            Paystack is not connected yet — no money moves.
+          <div className="flex gap-2.5 rounded-xl bg-tint-mint px-3 py-2.5">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1C6B4A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-px shrink-0">
+              <path d="M3 7.5h18v11H3z" />
+              <path d="M3 11h18" />
+            </svg>
+            <span className="text-[11.5px] leading-snug text-reef">
+              <strong className="font-bold">You pay the rider, not us.</strong> Cash or transfer when
+              the fish is in your hands and you have seen the weight. Card payment is coming.
+            </span>
+          </div>
+
+          <span className="text-[11px] leading-snug text-ink-muted">
+            The final amount follows the real packed weight, within 8% of what you ordered. Packed
+            under, you pay less. Packed over, we absorb it.
           </span>
+
+          <Button size="lg" fullWidth loading={placing} onClick={placeOrder}>
+            Place order — {formatNaira(totalKobo)}
+          </Button>
 
           <Button variant="tertiary" size="sm" onClick={() => setStep(2)}>
             Back to scheduling
