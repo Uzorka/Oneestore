@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 
 import { useCart } from "@/components/CartProvider";
+import { useCatalog } from "@/components/CatalogProvider";
 import { Artwork } from "@/components/Artwork";
 import { Badge } from "@/components/ui/Badge";
 import { ButtonLink } from "@/components/ui/Button";
@@ -13,7 +14,7 @@ import { cartWeightG, isEmpty, priceCart } from "@/lib/cart";
 import { ZONES, deliveryFeeKobo, findZone, toFreeDeliveryKobo } from "@/lib/delivery";
 import { formatNaira, formatWeight } from "@/lib/money";
 import { priceDrift, priceLine } from "@/lib/pricing";
-import { artKindFor, productMap, productPhoto } from "@/lib/seed";
+import { artKindFor, productPhoto } from "@/lib/seed";
 
 /**
  * The basket.
@@ -24,7 +25,7 @@ import { artKindFor, productMap, productPhoto } from "@/lib/seed";
  */
 export function BasketClient() {
   const { state, dispatch, ready, remainingG } = useCart();
-  const catalog = useMemo(() => productMap(), []);
+  const { productMap: catalog } = useCatalog();
 
   const totals = useMemo(() => priceCart(state, catalog), [state, catalog]);
   const zone = state.zoneId === null ? undefined : findZone(state.zoneId);

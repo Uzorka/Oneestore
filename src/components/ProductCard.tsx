@@ -1,6 +1,9 @@
+"use client";
+
 import Link from "next/link";
 
 import { Artwork } from "@/components/Artwork";
+import { useCatalog } from "@/components/CatalogProvider";
 import { Badge } from "@/components/ui/Badge";
 import { Price } from "@/components/ui/Price";
 import { formatWeight } from "@/lib/money";
@@ -12,7 +15,16 @@ import type { Product } from "@/lib/types";
  * availability. Everything else belongs on the product page — a card crowded
  * with detail is a card nobody reads.
  */
-export function ProductCard({ product }: { product: Product }) {
+export function ProductCard({ product: seed }: { product: Product }) {
+  /*
+    The card is handed the seed product so the server can render it, then
+    swaps to whatever the shop has published once that is available in the
+    browser. Without this a price set on the board this morning would reach
+    the basket but not the shelf the customer picked it off — the two would
+    disagree on the same screen.
+  */
+  const { productMap, ready } = useCatalog();
+  const product = ready ? (productMap.get(seed.id) ?? seed) : seed;
   const low = product.availability === "today" && product.stockG <= 6000;
 
   return (

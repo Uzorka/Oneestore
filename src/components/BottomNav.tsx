@@ -72,6 +72,11 @@ export function BottomNav() {
   // bars is one too many, and the purchase bar is the one that matters there.
   if (pathname.startsWith("/product/")) return null;
 
+  // Operations is not the storefront. Someone weighing fish at the jetty has
+  // no use for a basket tab, and it sits on top of the figures they are
+  // reading.
+  if (pathname.startsWith("/admin")) return null;
+
   const count = ready ? cartLineCount(state) : 0;
 
   return (

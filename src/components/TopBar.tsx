@@ -4,10 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { useCart } from "@/components/CartProvider";
+import { useCatalog } from "@/components/CatalogProvider";
 import { Container } from "@/components/Container";
 import { cartLineCount, priceCart } from "@/lib/cart";
 import { formatNaira } from "@/lib/money";
-import { productMap } from "@/lib/seed";
 
 /** The wordmark, set in the sans at wide tracking — never the display serif. */
 export function Wordmark() {
@@ -48,9 +48,10 @@ const NAV = [
 export function TopBar({ area = "Lekki Phase 1" }: { area?: string }) {
   const pathname = usePathname();
   const { state, ready } = useCart();
+  const { productMap: catalog } = useCatalog();
 
   const count = ready ? cartLineCount(state) : 0;
-  const totals = ready && count > 0 ? priceCart(state, productMap()) : null;
+  const totals = ready && count > 0 ? priceCart(state, catalog) : null;
 
   return (
     <header className="glass-light fixed inset-x-0 top-0 z-40 border-x-0 border-t-0">

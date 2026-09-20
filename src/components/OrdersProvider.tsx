@@ -24,6 +24,8 @@ interface OrdersContextValue {
   readonly ready: boolean;
   readonly place: (order: Order) => void;
   readonly move: (id: string, to: OrderStatus, note?: string) => void;
+  /** Swap an order for an updated copy — how the packing room saves weights. */
+  readonly replace: (order: Order) => void;
   readonly byId: (id: string) => Order | undefined;
 }
 
@@ -63,11 +65,15 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  const replace = useCallback((next: Order) => {
+    setOrders((prev) => prev.map((o) => (o.id === next.id ? next : o)));
+  }, []);
+
   const byId = useCallback((id: string) => orders.find((o) => o.id === id), [orders]);
 
   const value = useMemo(
-    () => ({ orders, ready, place, move, byId }),
-    [orders, ready, place, move, byId],
+    () => ({ orders, ready, place, move, replace, byId }),
+    [orders, ready, place, move, replace, byId],
   );
 
   return <OrdersContext.Provider value={value}>{children}</OrdersContext.Provider>;

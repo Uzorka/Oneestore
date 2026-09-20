@@ -72,6 +72,13 @@ export interface Order {
    */
   readonly settlement: "on_delivery";
   readonly history: readonly OrderEvent[];
+
+  /**
+   * What each line actually weighed, once it has been on the scale, keyed by
+   * `productId:prepId`. Absent until the packing room gets to it — an order
+   * with no readings is not an order packed at zero.
+   */
+  readonly packed?: Readonly<Record<string, Grams>>;
 }
 
 // ---------------------------------------------------------------------------

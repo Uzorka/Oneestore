@@ -4,9 +4,7 @@ import { notFound } from "next/navigation";
 import { Artwork } from "@/components/Artwork";
 import { BOTTOM_CLEARANCE, Container } from "@/components/Container";
 import { PageBar } from "@/components/TopBar";
-import { Badge } from "@/components/ui/Badge";
-import { Price } from "@/components/ui/Price";
-import { formatWeight } from "@/lib/money";
+import { LivePrice } from "@/components/LivePrice";
 import { artKindFor, products, productBySlug, productPhoto } from "@/lib/seed";
 
 import { ProductCustomizer } from "./ProductCustomizer";
@@ -72,13 +70,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           </div>
 
           <div className="flex items-baseline gap-2">
-            <Price amountKobo={product.pricePerKgKobo} size="xl" suffix="per kg" />
-            <span className="flex-1" />
-            {product.availability === "today" ? (
-              <Badge tone="stock">{formatWeight(product.stockG)} available</Badge>
-            ) : (
-              <Badge tone="soon">Tomorrow</Badge>
-            )}
+            <LivePrice product={product} />
           </div>
         </header>
 

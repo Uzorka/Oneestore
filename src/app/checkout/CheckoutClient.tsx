@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useAccount } from "@/components/AccountProvider";
 import { useCart } from "@/components/CartProvider";
+import { useCatalog } from "@/components/CatalogProvider";
 import { useOrders } from "@/components/OrdersProvider";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -18,7 +19,6 @@ import { resendInSeconds } from "@/lib/otp";
 import { formatNigerianMobile, maskNigerianMobile, phoneError, toE164 } from "@/lib/phone";
 import { createOrder } from "@/lib/orders";
 import { toCartLines } from "@/lib/cart";
-import { productMap } from "@/lib/seed";
 
 /**
  * Checkout, in four progressive steps.
@@ -51,7 +51,7 @@ export function CheckoutClient() {
   const { place } = useOrders();
   const router = useRouter();
   const account = useAccount();
-  const catalog = useMemo(() => productMap(), []);
+  const { productMap: catalog } = useCatalog();
 
   const [step, setStep] = useState<StepIndex>(0);
 

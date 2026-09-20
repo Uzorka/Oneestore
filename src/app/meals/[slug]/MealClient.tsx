@@ -4,13 +4,14 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useCart } from "@/components/CartProvider";
+import { useCatalog } from "@/components/CatalogProvider";
 import { Artwork } from "@/components/Artwork";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/Button";
 import { WeightStepper } from "@/components/ui/WeightStepper";
 import { formatNaira, formatPerKg, formatWeight } from "@/lib/money";
 import { mealLines, priceBasket, priceLine } from "@/lib/pricing";
-import { artKindFor, productMap, productPhoto } from "@/lib/seed";
+import { artKindFor, productPhoto } from "@/lib/seed";
 import type { Grams, Meal, Product } from "@/lib/types";
 
 /**
@@ -29,7 +30,7 @@ const SERVE_OPTIONS = [2, 4, 6, 8] as const;
 
 export function MealClient({ meal }: { meal: Meal }) {
   const { dispatch } = useCart();
-  const catalog = useMemo(() => productMap(), []);
+  const { productMap: catalog } = useCatalog();
   const toast = useToast();
   const router = useRouter();
 

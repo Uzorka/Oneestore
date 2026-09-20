@@ -99,6 +99,7 @@ src/
     meals/                Shop by Meal, and a builder per dish (client)
     basket/               the basket, priced by the engine
     account/orders/       order history, and one order with its tracker
+    admin/                operations — today, the board, the packing queue
     checkout/             five steps; contact, delivery and schedule are live
     orders/               honest empty state until orders exist
     globals.css           design tokens, glass, motion
@@ -121,6 +122,8 @@ src/
     cart.ts               basket reducer, aggregate stock, persistence
     delivery.ts           zones, fees, cut-off, slots
     orders.ts             order snapshot + the status machine
+    packing.ts            scale readings -> wallet credit, absorb, override
+    catalog.ts            the morning board: draft, publish, overlay
     seed.ts               placeholder catalog
 supabase/migrations/      schema with RLS
 ```
@@ -192,11 +195,27 @@ codes are shown in the page rather than sent, behind the `SmsSender` interface
 that Termii implements. The catalog is `seed.ts` rather than Supabase, behind
 the same types. Neither is a rewrite — each is one object to replace.
 
-**Next:** the packing room. Orders currently live in one browser's
-localStorage, which means the shop cannot see them — every screen is built, but
-the table behind them is not. That is Supabase, and then an admin view that
-moves orders along for real instead of the labelled stand-in buttons on the
-order page. Paystack after that.
+- M5: the packing room, at `/admin`. Three screens, built for a phone at a
+  jetty rather than a shrunken desktop table: **Today** (what is blocking, what
+  is running out), **Prices & stock** (the morning board), and the **packing
+  queue** with the weighing screen.
+
+  The weighing screen is what the pricing engine was written for. Every rule it
+  has enforced in tests since the first milestone happens there against a real
+  number off a scale: the ±8% band, wallet credit for an underpack, absorbing
+  an overpack, and never charging above the authorised amount. Nothing is
+  clamped — a weight outside the band is saved and flagged, because correcting
+  it silently would hide the mistake and change what the shop believes it sent.
+  An order cannot be dispatched until every line has been weighed.
+
+  Prices stage into a draft and go live in one act. A morning's pricing is a
+  single piece of judgement, and you do not want half of it on the storefront
+  while someone is still deciding about the prawns.
+
+**Next:** the table behind all of it. Orders and the price board live in one
+browser's localStorage, so the shop and the customer cannot yet see the same
+thing — every screen is built, the database is not. That is Supabase, and
+Paystack after it.
 
 All catalog data is **placeholder**. Prices, stock, ratings, the ±8% band, zone
 fees, the 11 AM cut-off, the box tiers (3 kg → 5%, 5 kg → 10%) and the per-serving

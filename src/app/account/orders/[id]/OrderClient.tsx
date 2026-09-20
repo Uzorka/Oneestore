@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { use } from "react";
 
 import { Artwork } from "@/components/Artwork";
+import { useCatalog } from "@/components/CatalogProvider";
 import { useOrders } from "@/components/OrdersProvider";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -19,7 +20,7 @@ import {
   statusLabel,
 } from "@/lib/orders";
 import type { Order } from "@/lib/orders";
-import { artKindFor, productMap, productPhoto } from "@/lib/seed";
+import { artKindFor, productPhoto } from "@/lib/seed";
 import type { OrderStatus } from "@/lib/types";
 
 /**
@@ -36,7 +37,7 @@ export function OrderClient({ params }: { params: Promise<{ id: string }> }) {
   const search = useSearchParams();
   const justPlaced = search.get("placed") === "1";
 
-  const catalog = productMap();
+  const { productMap: catalog } = useCatalog();
   const order = byId(id);
 
   if (!ready) {

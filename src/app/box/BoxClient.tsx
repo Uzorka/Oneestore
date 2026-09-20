@@ -4,13 +4,14 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useCart } from "@/components/CartProvider";
+import { useCatalog } from "@/components/CatalogProvider";
 import { Artwork } from "@/components/Artwork";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/Button";
 import { WeightStepper } from "@/components/ui/WeightStepper";
 import { formatNaira, formatPerKg, formatWeight } from "@/lib/money";
 import { BOX_TIERS, normalizeWeight, priceBox, priceLine } from "@/lib/pricing";
-import { artKindFor, products as catalogProducts, productMap, productPhoto } from "@/lib/seed";
+import { artKindFor, productPhoto } from "@/lib/seed";
 import type { CartLine, Grams, Product } from "@/lib/types";
 
 /**
@@ -36,15 +37,15 @@ function defaultPrepId(product: Product): string {
 
 export function BoxClient() {
   const { dispatch, remainingG, ready } = useCart();
-  const catalog = useMemo(() => productMap(), []);
+  const { productMap: catalog, products: liveProducts } = useCatalog();
   const toast = useToast();
   const router = useRouter();
 
   const [picked, setPicked] = useState<Readonly<Record<string, Grams>>>({});
 
   const shelf = useMemo(
-    () => catalogProducts.filter((p) => p.availability !== "hidden" && p.stockG > 0),
-    [],
+    () => liveProducts.filter((p) => p.availability !== "hidden" && p.stockG > 0),
+    [liveProducts],
   );
 
   const lines: CartLine[] = useMemo(

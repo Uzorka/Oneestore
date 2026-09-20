@@ -12,7 +12,7 @@ import {
   serializeCart,
 } from "@/lib/cart";
 import type { CartAction, CartState } from "@/lib/cart";
-import { productMap } from "@/lib/seed";
+import { useCatalog } from "@/components/CatalogProvider";
 import type { Grams } from "@/lib/types";
 
 /**
@@ -37,7 +37,8 @@ interface CartContextValue {
 const CartContext = createContext<CartContextValue | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const catalog = useMemo(() => productMap(), []);
+  // Prices come from what the shop has published, not from the seed file.
+  const { productMap: catalog } = useCatalog();
 
   const reduce = useCallback(
     (state: CartState, action: CartAction) => cartReducer(state, action, catalog),

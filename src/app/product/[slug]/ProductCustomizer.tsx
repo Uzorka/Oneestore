@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 
 import { useCart } from "@/components/CartProvider";
+import { useCatalog } from "@/components/CatalogProvider";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/Button";
 import { PreparationSelector, WeightSelector, WeightStepper } from "@/components/ui/Selectors";
@@ -20,8 +21,14 @@ import type { Grams, Product } from "@/lib/types";
 
 const QUICK_WEIGHTS: readonly Grams[] = [500, 1000, 2000];
 
-export function ProductCustomizer({ product }: { product: Product }) {
+export function ProductCustomizer({ product: seed }: { product: Product }) {
   const { dispatch, remainingG } = useCart();
+  const { productMap, ready } = useCatalog();
+
+  // The page is rendered on the server from the seed catalog; the price the
+  // shop published this morning only exists in the browser. Resolving it here
+  // stops a customer clicking a card at one price and landing on another.
+  const product = ready ? (productMap.get(seed.id) ?? seed) : seed;
   const { show } = useToast();
 
   const [weightG, setWeightG] = useState<Grams>(normalizeWeight(product, 1000));
