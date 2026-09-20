@@ -1,5 +1,5 @@
 import { priceForWeight } from "./money";
-import type { Bps, CartLine, Grams, Kobo, PrepOption, Product } from "./types";
+import type { Bps, CartLine, Grams, Kobo, Meal, PrepOption, Product } from "./types";
 
 /**
  * The pricing and weight engine.
@@ -123,8 +123,16 @@ export interface BasketTotals {
   readonly totalWeightG: Grams;
   readonly goodsKobo: Kobo;
   readonly prepKobo: Kobo;
-  /** Goods plus preparation, before delivery. */
+  /** Goods plus preparation, before the volume discount and before delivery. */
   readonly subtotalKobo: Kobo;
+  /** The volume discount this basket's weight earns. */
+  readonly discountBps: Bps;
+  readonly discountKobo: Kobo;
+  /** What the customer actually pays for the seafood: subtotal less discount. */
+  readonly payableKobo: Kobo;
+  /** Weight still needed for a better rate, or null at the top tier. */
+  readonly gToNextTierG: Grams | null;
+  readonly nextTierDiscountBps: Bps | null;
 }
 
 export function priceBasket(
@@ -141,13 +149,29 @@ export function priceBasket(
 
   const goodsKobo = priced.reduce((sum, l) => sum + l.goodsKobo, 0);
   const prepKobo = priced.reduce((sum, l) => sum + l.prepKobo, 0);
+  const subtotalKobo = goodsKobo + prepKobo;
+
+  const totalWeightG = priced.reduce((sum, l) => sum + l.weightG, 0);
+
+  // The volume discount belongs to the basket, not to the screen that filled
+  // it. Build Your Box promises a better rate as the box grows; if that
+  // discount lived only in the box builder it would evaporate on the way to
+  // the basket, which would make the promise a lie. Weight is weight, so any
+  // basket heavy enough earns the same rate however it was assembled.
+  const discountBps = boxDiscountBps(totalWeightG);
+  const { discountKobo, gToNextTierG, nextTierDiscountBps } = volumeDiscount(subtotalKobo, totalWeightG);
 
   return {
     lines: priced,
-    totalWeightG: priced.reduce((sum, l) => sum + l.weightG, 0),
+    totalWeightG,
     goodsKobo,
     prepKobo,
-    subtotalKobo: goodsKobo + prepKobo,
+    subtotalKobo,
+    discountBps,
+    discountKobo,
+    payableKobo: subtotalKobo - discountKobo,
+    gToNextTierG,
+    nextTierDiscountBps,
   };
 }
 
@@ -215,10 +239,21 @@ export function reconcileLine(args: {
   readonly actualG: Grams;
   readonly unitPricePerKgKobo: Kobo;
   readonly chargedKobo: Kobo;
+  /**
+   * The volume discount the order was authorised at. It is passed in, never
+   * recomputed from the packed weight: if packing under drops the basket below
+   * a tier we do not claw the discount back, because that would charge more
+   * than the customer approved.
+   */
+  readonly discountBps?: Bps;
 }): Reconciliation {
-  const { orderedG, actualG, unitPricePerKgKobo, chargedKobo } = args;
+  const { orderedG, actualG, unitPricePerKgKobo, chargedKobo, discountBps = 0 } = args;
 
-  const actualValueKobo = priceForWeight(unitPricePerKgKobo, actualG);
+  // Value the packed weight at the rate the customer was actually charged,
+  // discount included. Measuring it at the undiscounted rate would read the
+  // discount itself as an overpack we had absorbed.
+  const grossValueKobo = priceForWeight(unitPricePerKgKobo, actualG);
+  const actualValueKobo = grossValueKobo - Math.floor((grossValueKobo * discountBps) / 10000);
   const delta = chargedKobo - actualValueKobo;
   const withinTolerance = isWithinTolerance(orderedG, actualG);
 
@@ -260,7 +295,7 @@ export interface BoxTotals {
   readonly nextTierDiscountBps: Bps | null;
 }
 
-/** The discount a box of this weight earns. */
+/** The discount a basket of this weight earns. */
 export function boxDiscountBps(totalWeightG: Grams): Bps {
   for (const tier of BOX_TIERS) {
     if (totalWeightG >= tier.minG) return tier.discountBps;
@@ -268,29 +303,63 @@ export function boxDiscountBps(totalWeightG: Grams): Bps {
   return 0;
 }
 
+/**
+ * The volume discount on a given subtotal and weight, plus how far it is from
+ * a better rate. Shared by the basket and the box builder so the number the
+ * builder promises is the number the basket charges.
+ */
+export function volumeDiscount(
+  subtotalKobo: Kobo,
+  totalWeightG: Grams,
+): {
+  readonly discountBps: Bps;
+  readonly discountKobo: Kobo;
+  readonly gToNextTierG: Grams | null;
+  readonly nextTierDiscountBps: Bps | null;
+} {
+  const discountBps = boxDiscountBps(totalWeightG);
+
+  // Round the discount down, and down to a whole naira.
+  //
+  // Down, so a basket never costs less than its parts imply. Whole naira,
+  // because kobo are not used in practice here: 5% of ₦31,950 is ₦1,597.50,
+  // and a total reading ₦30,352.50 looks to a customer like a bug rather than
+  // a discount. The at-most-99-kobo difference is ours to lose, not theirs.
+  const rawDiscountKobo = Math.floor((subtotalKobo * discountBps) / 10000);
+  const discountKobo = Math.floor(rawDiscountKobo / 100) * 100;
+
+  // Tiers are ordered heaviest first; the next one up is the last tier the
+  // basket has not yet reached.
+  const unreached = [...BOX_TIERS].reverse().filter((t) => totalWeightG < t.minG);
+  const next = unreached[0];
+
+  return {
+    discountBps,
+    discountKobo,
+    gToNextTierG: next === undefined ? null : next.minG - totalWeightG,
+    nextTierDiscountBps: next === undefined ? null : next.discountBps,
+  };
+}
+
+/**
+ * A box priced as a box. This is `priceBasket` under another name — the
+ * discount is a property of weight, not of the screen — and exists so the box
+ * builder can read `grossKobo`/`netKobo` in the language of its own UI.
+ */
 export function priceBox(
   lines: readonly CartLine[],
   productsById: ReadonlyMap<string, Product>,
 ): BoxTotals {
   const basket = priceBasket(lines, productsById);
-  const discountBps = boxDiscountBps(basket.totalWeightG);
-
-  // Round the discount down so a box never costs less than its parts imply.
-  const discountKobo = Math.floor((basket.subtotalKobo * discountBps) / 10000);
-
-  // Tiers are ordered heaviest first; the next one up is the last tier the box
-  // has not yet reached.
-  const unreached = [...BOX_TIERS].reverse().filter((t) => basket.totalWeightG < t.minG);
-  const next = unreached[0];
 
   return {
     totalWeightG: basket.totalWeightG,
     grossKobo: basket.subtotalKobo,
-    discountBps,
-    discountKobo,
-    netKobo: basket.subtotalKobo - discountKobo,
-    gToNextTierG: next === undefined ? null : next.minG - basket.totalWeightG,
-    nextTierDiscountBps: next === undefined ? null : next.discountBps,
+    discountBps: basket.discountBps,
+    discountKobo: basket.discountKobo,
+    netKobo: basket.payableKobo,
+    gToNextTierG: basket.gToNextTierG,
+    nextTierDiscountBps: basket.nextTierDiscountBps,
   };
 }
 
@@ -324,4 +393,60 @@ export function mealQuantities(
       };
     })
     .filter((i) => i.weightG > 0);
+}
+
+/**
+ * The baseline preparation: the first one a product lists, which is always the
+ * one with no surcharge. Not every product has "whole" — shrimps are sold
+ * shell-on or peeled and never whole — so this is read from the product rather
+ * than assumed.
+ */
+export function defaultPrepId(product: Product): string {
+  return product.preps[0]?.id ?? "whole";
+}
+
+/**
+ * Turn a meal into basket lines.
+ *
+ * `adjustmentsG` holds what the customer has changed by hand, kept separate
+ * from the serving count so that changing "how many people" rescales the
+ * recipe without discarding their edits.
+ *
+ * Everything comes in at the baseline preparation, for the same reason the box
+ * does: preparation is chosen per item in the basket, once, rather than six
+ * times while deciding on dinner.
+ */
+export function mealLines(args: {
+  readonly meal: Meal;
+  readonly serves: number;
+  readonly productsById: ReadonlyMap<string, Product>;
+  readonly excluded?: ReadonlySet<string>;
+  readonly adjustmentsG?: Readonly<Record<string, Grams>>;
+}): readonly CartLine[] {
+  const { meal, serves, productsById, excluded, adjustmentsG } = args;
+
+  const lines: CartLine[] = [];
+
+  for (const ingredient of meal.ingredients) {
+    if (excluded?.has(ingredient.productId) === true) continue;
+
+    const product = productsById.get(ingredient.productId);
+    if (product === undefined) continue;
+
+    const base = ingredient.gPerServing * Math.max(1, serves);
+    const adjusted = base + (adjustmentsG?.[ingredient.productId] ?? 0);
+    if (adjusted <= 0) continue;
+
+    const weightG = normalizeWeight(product, adjusted);
+    if (weightG <= 0) continue;
+
+    lines.push({
+      productId: product.id,
+      prepId: defaultPrepId(product),
+      weightG,
+      unitPricePerKgKoboSnapshot: product.pricePerKgKobo,
+    });
+  }
+
+  return lines;
 }

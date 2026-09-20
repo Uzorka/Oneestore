@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { ProductCard } from "@/components/ProductCard";
 import { BOTTOM_CLEARANCE, Container } from "@/components/Container";
@@ -25,6 +26,35 @@ export default function ShopPage() {
               {available.length} kinds · prices per kilogram, updated 6:12 AM
             </span>
           </div>
+        </div>
+
+        {/*
+          On a phone these two live only on the home page, and the tab bar has
+          no room for them. Someone who came straight to the catalog would
+          otherwise have to go back home to find either.
+        */}
+        <div className="grid grid-cols-2 gap-3 lg:hidden">
+          <Link
+            href="/box"
+            className="flex min-h-11 items-center gap-2.5 rounded-[15px] bg-abyss px-3.5 py-3"
+          >
+            <svg width="20" height="20" viewBox="0 0 40 40" fill="none" stroke="#7FD3C4" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+              <path d="M6 14l14-6 14 6-14 6-14-6z" />
+              <path d="M6 14v12l14 6 14-6V14" />
+            </svg>
+            <span className="truncate text-[12.5px] font-bold text-white">Build Your Box</span>
+          </Link>
+
+          <Link
+            href="/meals"
+            className="flex min-h-11 items-center gap-2.5 rounded-[15px] border border-line bg-paper px-3.5 py-3"
+          >
+            <svg width="20" height="20" viewBox="0 0 40 40" fill="none" stroke="#C64A26" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+              <path d="M8 17h24v9a7 7 0 0 1-7 7H15a7 7 0 0 1-7-7v-9z" />
+              <path d="M32 20h3a3 3 0 0 1 0 6h-3" />
+            </svg>
+            <span className="truncate text-[12.5px] font-bold">Shop by Meal</span>
+          </Link>
         </div>
 
         {categories.map((category) => {

@@ -76,7 +76,7 @@ export default function HomePage() {
       <Container className={`flex flex-col gap-10 pt-8 md:gap-14 md:pt-12 ${BOTTOM_CLEARANCE}`}>
         <div className="grid gap-3 md:grid-cols-2 md:gap-5">
           <Link
-            href="/shop"
+            href="/box"
             className="flex items-center gap-4 rounded-[19px] bg-abyss p-4.5 transition-transform duration-[var(--m-fast)] hover:-translate-y-0.5 md:p-6"
           >
             <span className="flex size-[62px] shrink-0 items-center justify-center rounded-[15px] border border-white/15 bg-white/10">
@@ -97,7 +97,7 @@ export default function HomePage() {
           </Link>
 
           <Link
-            href="/shop"
+            href="/meals"
             className="flex items-center gap-4 rounded-[19px] border border-line bg-paper p-4.5 transition-transform duration-[var(--m-fast)] hover:-translate-y-0.5 md:p-6"
           >
             <span className="flex size-[62px] shrink-0 items-center justify-center rounded-[15px] bg-tint-clay">

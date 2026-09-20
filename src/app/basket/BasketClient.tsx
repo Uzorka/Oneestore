@@ -28,9 +28,13 @@ export function BasketClient() {
 
   const totals = useMemo(() => priceCart(state, catalog), [state, catalog]);
   const zone = state.zoneId === null ? undefined : findZone(state.zoneId);
-  const deliveryKobo = zone === undefined ? 0 : deliveryFeeKobo(zone, totals.goodsKobo);
-  const toFreeKobo = toFreeDeliveryKobo(totals.goodsKobo);
-  const totalKobo = totals.subtotalKobo + deliveryKobo;
+
+  // The threshold is measured against what the customer actually pays for
+  // seafood, so the volume discount is not quietly counted twice in their
+  // favour by also buying them free delivery they have not reached.
+  const deliveryKobo = zone === undefined ? 0 : deliveryFeeKobo(zone, totals.payableKobo);
+  const toFreeKobo = toFreeDeliveryKobo(totals.payableKobo);
+  const totalKobo = totals.payableKobo + deliveryKobo;
 
   if (!ready) {
     return (
@@ -216,7 +220,7 @@ export function BasketClient() {
                   <span className="truncate text-[11px] text-ink-muted">{z.areas.join(", ")}</span>
                 </span>
                 <span className="shrink-0 text-[12.5px] font-bold">
-                  {totals.goodsKobo >= 0 && deliveryFeeKobo(z, totals.goodsKobo) === 0
+                  {deliveryFeeKobo(z, totals.payableKobo) === 0
                     ? "Free"
                     : formatNaira(z.feeKobo)}
                 </span>
@@ -232,6 +236,13 @@ export function BasketClient() {
         {totals.prepKobo > 0 && (
           <Row label="Cleaning & cutting" value={formatNaira(totals.prepKobo)} />
         )}
+        {totals.discountKobo > 0 && (
+          <Row
+            label={`Volume discount (${totals.discountBps / 100}%)`}
+            value={`−${formatNaira(totals.discountKobo)}`}
+            tone="credit"
+          />
+        )}
         <Row
           label={zone === undefined ? "Delivery" : `Delivery — ${zone.name}`}
           value={
@@ -243,6 +254,32 @@ export function BasketClient() {
           }
         />
 
+        {totals.gToNextTierG !== null && totals.nextTierDiscountBps !== null && (
+          <div className="flex flex-col gap-1 rounded-xl bg-tint-teal px-3 py-2.5">
+            <span className="flex items-start gap-2">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0F5D57" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" className="mt-px shrink-0">
+                <path d="M6 14l6-2.6 6 2.6" />
+                <path d="M6 14v6l6 2.6 6-2.6v-6" />
+              </svg>
+              <span className="text-[11.5px] leading-snug text-lagoon">
+                Add <strong className="font-bold">{formatWeight(totals.gToNextTierG)}</strong> more and
+                the whole basket drops {totals.nextTierDiscountBps / 100}%.
+              </span>
+            </span>
+
+            {/* Its own row: an inline link inside that sentence cannot be 44px. */}
+            <Link
+              href="/box"
+              className="flex min-h-11 items-center gap-1.5 text-[12px] font-bold text-lagoon"
+            >
+              Build a box
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
+        )}
+
         {toFreeKobo > 0 && (
           <div className="flex flex-col gap-1.5 rounded-xl bg-tint-mint px-3 py-2.5">
             <span className="text-[11.5px] leading-snug text-reef">
@@ -252,7 +289,7 @@ export function BasketClient() {
             <div className="h-1.5 overflow-hidden rounded-full bg-[#C9DFD5]">
               <div
                 className="h-1.5 rounded-full bg-reef transition-[width] duration-[var(--m-standard)] ease-[var(--ease-standard)]"
-                style={{ width: `${Math.min(100, Math.round((totals.goodsKobo / (totals.goodsKobo + toFreeKobo)) * 100))}%` }}
+                style={{ width: `${Math.min(100, Math.round((totals.payableKobo / (totals.payableKobo + toFreeKobo)) * 100))}%` }}
               />
             </div>
           </div>
@@ -284,7 +321,7 @@ export function BasketClient() {
       </div>
 
       {/* On a phone it floats, because the summary is far below the fold. */}
-      <div className="glass-light fixed inset-x-0 bottom-0 z-30 flex flex-col gap-1.5 border-x-0 border-b-0 px-4 pt-3 pb-[104px] lg:hidden">
+      <div className="glass-light fixed inset-x-0 bottom-0 z-30 flex flex-col gap-1.5 border-x-0 border-b-0 px-4 pt-3 pb-[104px] md:pb-4 lg:hidden">
         <ButtonLink href="/checkout" size="lg" fullWidth>
           Checkout — {formatNaira(totalKobo)}
         </ButtonLink>
@@ -296,11 +333,23 @@ export function BasketClient() {
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  tone?: "default" | "credit";
+}) {
   return (
     <div className="flex items-baseline gap-2">
-      <span className="flex-1 text-[13px] text-ink-soft">{label}</span>
-      <span className="text-[13.5px] font-semibold">{value}</span>
+      <span className={`flex-1 text-[13px] ${tone === "credit" ? "text-reef" : "text-ink-soft"}`}>
+        {label}
+      </span>
+      <span className={`text-[13.5px] font-semibold ${tone === "credit" ? "text-reef" : ""}`}>
+        {value}
+      </span>
     </div>
   );
 }

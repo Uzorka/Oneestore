@@ -67,13 +67,16 @@ that moves every morning:
 | Four ways of typing a Lagos number are one account | `toE164` |
 | An address without a landmark is never saved | `validateAddress` |
 | Code limits are enforced in the verifier, not the form | `otp.ts` |
+| The volume discount belongs to the basket's weight, not to the screen that filled it | `priceBasket`, `volumeDiscount` |
+| A discount is authorised once and never clawed back by a light pack | `reconcileLine`'s `discountBps` |
+| Totals never owe kobo | the discount floors to whole naira |
 
 That last rule is not a preference. Charging a card above what the customer
 approved collects chargebacks and destroys the trust the whole proposition
 rests on, so the engine has no code path that can do it.
 
 `src/lib/pricing.ts` and `src/lib/cart.ts` are pure — no I/O, no React, no
-framework. They are covered by 102 tests, several of which assert the exact
+framework. They are covered by 155 tests, several of which assert the exact
 figures used in the design so the screens and the maths cannot drift apart.
 `CartProvider` is a thin wrapper that only holds state and talks to
 localStorage; no rule lives in it.
@@ -89,6 +92,8 @@ src/
     shop/                 catalog by category
     product/[slug]/       product + the three-step customizer (client)
     search/               live search, matches local names
+    box/                  Build Your Box — live tier progress (client)
+    meals/                Shop by Meal, and a builder per dish (client)
     basket/               the basket, priced by the engine
     checkout/             five steps; contact, delivery and schedule are live
     orders/               honest empty state until orders exist
@@ -147,9 +152,13 @@ an 80ms opacity fade — state still confirms, nothing travels.
   scheduling that explains every closed day. Checkout runs as five progressive
   steps, of which the first three are live.
 
+- M3.5: Build Your Box and Shop by Meal. Both compose a basket rather than a
+  separate kind of order, so the volume discount they show is the one the
+  basket charges — `priceBox` is now `priceBasket` under another name. Meal
+  quantities scale with the serving count while hand-adjustments survive it.
+
 **Not done yet:** payment. The checkout's pay button is drawn, priced and
-inert, and says so on screen. Build Your Box and Shop by Meal have tested
-engine support (`priceBox`, `mealQuantities`) and designs, but no screens.
+inert, and says so on screen.
 
 **Two things are stand-ins, both clearly marked on screen.** Verification
 codes are shown in the page rather than sent, behind the `SmsSender` interface
@@ -160,7 +169,8 @@ the same types. Neither is a rewrite — each is one object to replace.
 machine.
 
 All catalog data is **placeholder**. Prices, stock, ratings, the ±8% band, zone
-fees, the 11 AM cut-off and the box tiers need your real numbers before launch,
+fees, the 11 AM cut-off, the box tiers (3 kg → 5%, 5 kg → 10%) and the per-serving
+meal quantities need your real numbers and margins before launch,
 and every image is a labelled placeholder until the photography exists.
 
 ---

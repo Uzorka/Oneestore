@@ -29,3 +29,15 @@ export function Container({
  * hole, so the padding goes with it.
  */
 export const BOTTOM_CLEARANCE = "pb-28 md:pb-16";
+
+/**
+ * Bottom clearance for a page that also carries a floating action bar.
+ *
+ * The bar is glass, so content that ends underneath it is not hidden — it
+ * shows through, half-legible, behind the total. It has to end above it.
+ *
+ * Below `md` the bar clears the tab bar as well, so it is about 160px tall.
+ * At `md` the tab bar is gone and the bar shrinks. At `lg` the bar is gone
+ * too and the action has moved into the summary column.
+ */
+export const ACTION_BAR_CLEARANCE = "pb-48 md:pb-28 lg:pb-16";

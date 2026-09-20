@@ -12,14 +12,16 @@ import {
   normalizeWeight,
   priceBasket,
   priceBox,
+  mealLines,
+  defaultPrepId,
   priceDrift,
   priceLine,
   reconcileLine,
   reconcileOrder,
   toleranceBand,
 } from "./pricing";
-import { PREPS, productMap, products } from "./seed";
-import type { CartLine, Product } from "./types";
+import { PREPS, meals, productMap, products } from "./seed";
+import type { CartLine, Meal, Product } from "./types";
 
 const byId = productMap();
 const croaker = byId.get("croaker") as Product;
@@ -288,6 +290,60 @@ describe("reconcileLine", () => {
     expect(order.walletCreditKobo).toBe(naira(500));
     expect(order.absorbedKobo).toBe(naira(500));
   });
+
+  it("settles a discounted line at zero when it packs exactly to weight", () => {
+    const unit = naira(10_000);
+    const charged = naira(10_000) - naira(1000); // 10% volume discount
+
+    const r = reconcileLine({
+      orderedG: 1000,
+      actualG: 1000,
+      unitPricePerKgKobo: unit,
+      chargedKobo: charged,
+      discountBps: 1000,
+    });
+
+    // Without the discount in the reconciliation the full ₦1,000 would read as
+    // money we had absorbed on a line that was packed perfectly.
+    expect(r.walletCreditKobo).toBe(0);
+    expect(r.absorbedKobo).toBe(0);
+  });
+
+  it("credits a discounted underpack at the discounted rate, not the list rate", () => {
+    const unit = naira(10_000);
+    const charged = naira(9000); // 1 kg less 10%
+
+    const r = reconcileLine({
+      orderedG: 1000,
+      actualG: 900,
+      unitPricePerKgKobo: unit,
+      chargedKobo: charged,
+      discountBps: 1000,
+    });
+
+    // 900 g is worth ₦9,000 at list, ₦8,100 discounted. The customer paid
+    // ₦9,000, so ₦900 goes back — not the ₦0 the list rate would imply.
+    expect(r.actualValueKobo).toBe(naira(8100));
+    expect(r.walletCreditKobo).toBe(naira(900));
+  });
+
+  it("keeps the authorised discount when packing under drops the basket a tier", () => {
+    const unit = naira(10_000);
+
+    // Ordered 5 kg (10% tier), packed 4.9 kg — below 5 kg, but the rate the
+    // customer approved stands. Recomputing it would charge them more.
+    const r = reconcileLine({
+      orderedG: 5000,
+      actualG: 4900,
+      unitPricePerKgKobo: unit,
+      chargedKobo: naira(45_000),
+      discountBps: 1000,
+    });
+
+    expect(r.actualValueKobo).toBe(naira(44_100));
+    expect(r.walletCreditKobo).toBe(naira(900));
+    expect(r.absorbedKobo).toBe(0);
+  });
 });
 
 describe("Build Your Box", () => {
@@ -310,7 +366,7 @@ describe("Build Your Box", () => {
     ];
     const box = priceBox(lines, byId);
     expect(box.discountBps).toBe(500);
-    expect(box.discountKobo).toBe(Math.floor((box.grossKobo * 500) / 10000));
+    expect(box.discountKobo).toBe(Math.floor(Math.floor((box.grossKobo * 500) / 10000) / 100) * 100);
     expect(box.netKobo).toBe(box.grossKobo - box.discountKobo);
   });
 
@@ -345,6 +401,48 @@ describe("Build Your Box", () => {
     expect(empty.totalWeightG).toBe(0);
     expect(empty.netKobo).toBe(0);
     expect(empty.discountKobo).toBe(0);
+  });
+
+  /*
+   * The discount belongs to the weight, not to the screen. A box built in the
+   * box builder and the same seafood dropped in one item at a time have to
+   * cost the same, or the builder's promise breaks the moment it reaches the
+   * basket.
+   */
+  it("prices a box and the identical basket the same", () => {
+    const lines: CartLine[] = [
+      { productId: "croaker", prepId: "whole", weightG: 3000, unitPricePerKgKoboSnapshot: croaker.pricePerKgKobo },
+      { productId: "tiger-prawns", prepId: "whole", weightG: 2500, unitPricePerKgKoboSnapshot: prawns.pricePerKgKobo },
+    ];
+
+    const box = priceBox(lines, byId);
+    const basket = priceBasket(lines, byId);
+
+    expect(basket.discountBps).toBe(box.discountBps);
+    expect(basket.discountKobo).toBe(box.discountKobo);
+    expect(basket.payableKobo).toBe(box.netKobo);
+    expect(basket.subtotalKobo).toBe(box.grossKobo);
+  });
+
+  it("leaves a basket under the first tier at full price", () => {
+    const basket = priceBasket(
+      [{ productId: "croaker", prepId: "whole", weightG: 2000, unitPricePerKgKoboSnapshot: croaker.pricePerKgKobo }],
+      byId,
+    );
+    expect(basket.discountBps).toBe(0);
+    expect(basket.discountKobo).toBe(0);
+    expect(basket.payableKobo).toBe(basket.subtotalKobo);
+  });
+
+  it("counts preparation surcharges toward the discount, since they are charged", () => {
+    const basket = priceBasket(
+      [{ productId: "croaker", prepId: "cleaned", weightG: 5000, unitPricePerKgKoboSnapshot: croaker.pricePerKgKobo }],
+      byId,
+    );
+    expect(basket.prepKobo).toBeGreaterThan(0);
+    expect(basket.discountKobo).toBe(
+      Math.floor(Math.floor(((basket.goodsKobo + basket.prepKobo) * 1000) / 10000) / 100) * 100,
+    );
   });
 });
 
@@ -417,5 +515,112 @@ describe("seed catalog", () => {
   it("counts pieces only where a unit weight is known", () => {
     expect(approximatePieces(croaker, 2200)).toBe(2);
     expect(approximatePieces({ ...croaker, unitWeightG: null }, 2200)).toBeNull();
+  });
+});
+
+describe("mealLines", () => {
+  const okra = meals.find((m) => m.slug === "seafood-okra") as Meal;
+
+  it("uses each product's baseline preparation, not a hardcoded 'whole'", () => {
+    // Brown shrimps are never sold whole — shell-on is their baseline.
+    const shrimps = byId.get("brown-shrimps") as Product;
+    expect(defaultPrepId(shrimps)).toBe("shell-on");
+    expect(shrimps.preps.find((p) => p.id === defaultPrepId(shrimps))?.surchargePerKgKobo).toBe(0);
+  });
+
+  it("gives every product its own baseline prep and a zero surcharge", () => {
+    for (const product of products) {
+      const prep = product.preps.find((p) => p.id === defaultPrepId(product));
+      expect(prep).toBeDefined();
+      expect(prep?.surchargePerKgKobo).toBe(0);
+    }
+  });
+
+  it("prices the same as the quantities it is built from", () => {
+    const lines = mealLines({ meal: okra, serves: 4, productsById: byId });
+    const quantities = mealQuantities(okra.ingredients, 4, byId);
+
+    expect(lines.map((l) => l.weightG)).toEqual(quantities.map((q) => q.weightG));
+  });
+
+  it("rescales with the serving count", () => {
+    const four = mealLines({ meal: okra, serves: 4, productsById: byId });
+    const eight = mealLines({ meal: okra, serves: 8, productsById: byId });
+
+    const croakerFour = four.find((l) => l.productId === "croaker")?.weightG as number;
+    const croakerEight = eight.find((l) => l.productId === "croaker")?.weightG as number;
+    expect(croakerEight).toBe(croakerFour * 2);
+  });
+
+  it("keeps hand adjustments when the serving count changes", () => {
+    const adjustmentsG = { croaker: 500 };
+
+    const four = mealLines({ meal: okra, serves: 4, productsById: byId, adjustmentsG });
+    const eight = mealLines({ meal: okra, serves: 8, productsById: byId, adjustmentsG });
+
+    // 1500 + 500, then 3000 + 500 — the edit survives, it does not scale.
+    expect(four.find((l) => l.productId === "croaker")?.weightG).toBe(2000);
+    expect(eight.find((l) => l.productId === "croaker")?.weightG).toBe(3500);
+  });
+
+  it("drops an ingredient the customer switched off", () => {
+    const lines = mealLines({
+      meal: okra,
+      serves: 4,
+      productsById: byId,
+      excluded: new Set(["panla"]),
+    });
+    expect(lines.some((l) => l.productId === "panla")).toBe(false);
+  });
+
+  it("drops an ingredient adjusted down to nothing", () => {
+    const lines = mealLines({
+      meal: okra,
+      serves: 4,
+      productsById: byId,
+      adjustmentsG: { croaker: -99_999 },
+    });
+    expect(lines.some((l) => l.productId === "croaker")).toBe(false);
+  });
+
+  it("still prices Seafood Okra for four at ₦28,150 without the optional extras", () => {
+    const lines = mealLines({
+      meal: okra,
+      serves: 4,
+      productsById: byId,
+      excluded: new Set(okra.ingredients.filter((i) => i.optional).map((i) => i.productId)),
+    });
+
+    const totals = priceBasket(lines, byId);
+    expect(totals.subtotalKobo).toBe(naira(28_150));
+
+    // 2.5 kg is under the first tier, so this is also what is paid.
+    expect(totals.payableKobo).toBe(naira(28_150));
+  });
+});
+
+describe("whole naira", () => {
+  const okra = meals.find((m) => m.slug === "seafood-okra") as Meal;
+
+  it("never leaves a discounted basket owing kobo", () => {
+    // Every catalog price is a whole number of naira, so a total that is not
+    // is the discount's doing. 5% of ₦31,950 is ₦1,597.50 — floored to ₦1,597.
+    for (const serves of [2, 4, 6, 8]) {
+      const lines = mealLines({ meal: okra, serves, productsById: byId });
+      const totals = priceBasket(lines, byId);
+
+      expect(totals.discountKobo % 100).toBe(0);
+      expect(totals.payableKobo % 100).toBe(0);
+    }
+  });
+
+  it("still rounds the discount in our customers' disfavour, never ours", () => {
+    const lines = mealLines({ meal: okra, serves: 4, productsById: byId });
+    const totals = priceBasket(lines, byId);
+
+    expect(totals.discountKobo).toBeLessThanOrEqual((totals.subtotalKobo * totals.discountBps) / 10000);
+    expect(totals.payableKobo).toBeGreaterThanOrEqual(
+      totals.subtotalKobo - (totals.subtotalKobo * totals.discountBps) / 10000,
+    );
   });
 });

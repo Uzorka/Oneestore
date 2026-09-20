@@ -66,8 +66,8 @@ export function CheckoutClient() {
 
   const totals = priceCart(state, catalog);
   const zone = draft.zoneId === "" ? undefined : findZone(draft.zoneId);
-  const deliveryKobo = zone === undefined ? 0 : deliveryFeeKobo(zone, totals.goodsKobo);
-  const totalKobo = totals.subtotalKobo + deliveryKobo;
+  const deliveryKobo = zone === undefined ? 0 : deliveryFeeKobo(zone, totals.payableKobo);
+  const totalKobo = totals.payableKobo + deliveryKobo;
 
   const errors: AddressErrors = validateAddress(draft);
   const cooldown = resendInSeconds(account.challenge, Date.now());
@@ -538,6 +538,12 @@ export function CheckoutClient() {
               value={chosenSlot === undefined ? "—" : `${slotDate} · ${chosenSlot.windowLabel}`}
             />
             <SummaryRow label="Seafood" value={`${formatWeight(totals.totalWeightG)} · ${formatNaira(totals.subtotalKobo)}`} />
+            {totals.discountKobo > 0 && (
+              <SummaryRow
+                label={`Volume discount (${totals.discountBps / 100}%)`}
+                value={`−${formatNaira(totals.discountKobo)}`}
+              />
+            )}
             <SummaryRow label="Delivery" value={deliveryKobo === 0 ? "Free" : formatNaira(deliveryKobo)} />
           </div>
 

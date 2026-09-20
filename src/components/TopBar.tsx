@@ -24,9 +24,17 @@ export function Wordmark() {
   );
 }
 
+/**
+ * `wide` items appear only from `lg`. At `md` the bar already carries a logo,
+ * search, account and basket; four nav items on top of that overflow 768px and
+ * the first thing flexbox crushes is the wordmark. They stay reachable there
+ * from the home page cards.
+ */
 const NAV = [
-  { href: "/shop", label: "Shop" },
-  { href: "/#fresh-promise", label: "Fresh Promise" },
+  { href: "/shop", label: "Shop", wide: false },
+  { href: "/box", label: "Build Your Box", wide: true },
+  { href: "/meals", label: "Shop by Meal", wide: true },
+  { href: "/#fresh-promise", label: "Fresh Promise", wide: false },
 ] as const;
 
 /**
@@ -46,8 +54,8 @@ export function TopBar({ area = "Lekki Phase 1" }: { area?: string }) {
 
   return (
     <header className="glass-light fixed inset-x-0 top-0 z-40 border-x-0 border-t-0">
-      <Container className="flex h-[74px] items-center gap-3 md:h-[82px] md:gap-7">
-        <Link href="/" className="flex min-h-11 min-w-0 flex-col justify-center gap-0.5">
+      <Container className="flex h-[74px] items-center gap-3 md:h-[82px] md:gap-3 lg:gap-5">
+        <Link href="/" className="flex min-h-11 shrink-0 flex-col justify-center gap-0.5">
           <Wordmark />
           <span className="flex items-center gap-1 pl-[42px] text-[10.5px] text-ink-muted md:hidden">
             <PinIcon />
@@ -55,15 +63,15 @@ export function TopBar({ area = "Lekki Phase 1" }: { area?: string }) {
           </span>
         </Link>
 
-        <nav aria-label="Main" className="hidden items-center gap-4 md:flex">
+        <nav aria-label="Main" className="hidden items-center gap-0.5 md:flex lg:gap-1">
           {NAV.map((item) => {
-            const active = item.href === "/shop" && pathname.startsWith("/shop");
+            const active = item.href !== "/#fresh-promise" && pathname.startsWith(item.href);
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex min-h-11 items-center rounded-lg px-2 text-sm transition-colors duration-[var(--m-fast)] ${
+                className={`${item.wide ? "hidden lg:flex" : "flex"} min-h-11 items-center rounded-lg px-2 text-[13px] whitespace-nowrap transition-colors duration-[var(--m-fast)] lg:text-sm ${
                   active ? "font-bold text-abyss" : "font-medium text-ink-soft hover:text-abyss"
                 }`}
               >
@@ -77,13 +85,13 @@ export function TopBar({ area = "Lekki Phase 1" }: { area?: string }) {
 
         <Link
           href="/search"
-          className="hidden h-11 items-center gap-2.5 rounded-control bg-sand px-3.5 text-[13.5px] text-ink-muted transition-colors hover:bg-line md:flex md:w-52 lg:w-64"
+          className="hidden h-11 items-center gap-2.5 rounded-control bg-sand px-3.5 text-[13.5px] text-ink-muted transition-colors hover:bg-line md:flex md:w-32 lg:w-56"
         >
           <SearchIcon />
           <span className="truncate">Search croaker, titus, ede…</span>
         </Link>
 
-        <span className="hidden h-11 items-center gap-1.5 rounded-control border border-line bg-paper px-3 text-[12.5px] font-semibold lg:flex">
+        <span className="hidden h-11 shrink-0 items-center gap-1.5 rounded-control border border-line bg-paper px-3 text-[12.5px] font-semibold whitespace-nowrap lg:flex">
           <PinIcon />
           {area}
         </span>
@@ -110,14 +118,14 @@ export function TopBar({ area = "Lekki Phase 1" }: { area?: string }) {
 
         <Link
           href="/basket"
-          className="relative hidden h-11 shrink-0 items-center gap-2.5 rounded-control bg-abyss px-4 text-[13.5px] font-semibold text-salt transition-colors hover:bg-[#123a3e] md:flex"
+          className="relative hidden h-11 shrink-0 items-center gap-2.5 rounded-control bg-abyss px-4 text-[13.5px] font-semibold whitespace-nowrap text-salt transition-colors hover:bg-[#123a3e] md:flex"
         >
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M4 5h2l2.2 10.4a2 2 0 0 0 2 1.6h7.4a2 2 0 0 0 2-1.5L21 9H7" />
             <circle cx="10.5" cy="20" r="1.3" />
             <circle cx="18" cy="20" r="1.3" />
           </svg>
-          {totals !== null ? formatNaira(totals.subtotalKobo) : "Basket"}
+          {totals !== null ? formatNaira(totals.payableKobo) : "Basket"}
           {count > 0 && (
             <span
               key={count}
