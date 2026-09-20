@@ -1,0 +1,187 @@
+@import "tailwindcss";
+
+/*
+ * ONEESTORE design tokens.
+ *
+ * The palette is ocean-and-salt with two accents sharing chroma: Clay carries
+ * the one primary action on a screen, Lagoon carries selection and identity.
+ * Nothing else is allowed to compete with them.
+ */
+@theme {
+  --color-salt: #f7f5f0;
+  --color-paper: #ffffff;
+  --color-abyss: #0b2b2e;
+  --color-lagoon: #0f5d57;
+  --color-clay: #c64a26;
+  --color-clay-deep: #b14121;
+  --color-reef: #1c6b4a;
+  --color-amber: #92500c;
+
+  --color-line: #e2ded4;
+  --color-rule: #efebe1;
+  --color-sand: #f2ede3;
+  --color-ink: #0b2b2e;
+  --color-ink-soft: #2c4442;
+  --color-ink-muted: #47605e;
+  --color-ink-faint: #7a8d8b;
+
+  /* Tinted surfaces behind placeholder photography and status chips. */
+  --color-tint-teal: #dceae7;
+  --color-tint-mint: #e7f1ec;
+  --color-tint-clay: #f6e3db;
+  --color-tint-amber: #fbefd8;
+  --color-tint-alert: #fdf0ec;
+
+  --font-display: "Fraunces", Georgia, serif;
+  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
+
+  --radius-sheet: 26px;
+  --radius-card: 17px;
+  --radius-control: 13px;
+
+  /*
+   * Motion tokens. Defined once, used everywhere — no component invents its
+   * own timing. Only transform and opacity are ever animated.
+   */
+  --ease-fast: cubic-bezier(0.2, 0, 0, 1);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-page: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+}
+
+:root {
+  --m-fast: 120ms;
+  --m-standard: 220ms;
+  --m-page: 320ms;
+  --m-spring: 420ms;
+  --m-modal: 280ms;
+  --m-sheet: 300ms;
+  --m-exit: 160ms;
+}
+
+/*
+ * Reduced motion collapses every token to a short opacity fade: state still
+ * confirms itself, nothing travels across the screen.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --m-fast: 80ms;
+    --m-standard: 80ms;
+    --m-page: 80ms;
+    --m-spring: 80ms;
+    --m-modal: 80ms;
+    --m-sheet: 80ms;
+    --m-exit: 80ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 80ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 80ms !important;
+    transition-property: opacity !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+html {
+  background: var(--color-salt);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-salt);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Never a clipped focus ring — keyboard users get the same care as everyone. */
+:focus-visible {
+  outline: 2px solid var(--color-abyss);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/*
+ * Glass. It only ever sits over content — navigation, sheets, drawers,
+ * floating controls. Content areas stay opaque so they can be scanned, and
+ * glass never carries body copy.
+ */
+@utility glass-light {
+  background: rgb(247 245 240 / 0.72);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid rgb(255 255 255 / 0.68);
+  box-shadow:
+    0 10px 34px rgb(11 43 46 / 0.14),
+    inset 0 1px 0 rgb(255 255 255 / 0.75);
+}
+
+@utility glass-dark {
+  background: rgb(11 43 46 / 0.76);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  border: 1px solid rgb(255 255 255 / 0.14);
+  box-shadow: 0 10px 34px rgb(0 0 0 / 0.3);
+}
+
+@utility glass-sheet {
+  background: rgb(255 255 255 / 0.9);
+  backdrop-filter: blur(32px) saturate(150%);
+  -webkit-backdrop-filter: blur(32px) saturate(150%);
+  border-top: 1px solid rgb(255 255 255 / 0.9);
+  box-shadow: 0 -16px 48px rgb(11 43 46 / 0.22);
+}
+
+/*
+ * Where backdrop-filter is unsupported the translucency is raised until the
+ * text behind it cannot interfere. Readability wins over the effect, always.
+ */
+@supports not (backdrop-filter: blur(1px)) {
+  .glass-light {
+    background: rgb(247 245 240 / 0.96);
+  }
+
+  .glass-dark {
+    background: rgb(11 43 46 / 0.96);
+  }
+
+  .glass-sheet {
+    background: rgb(255 255 255 / 0.98);
+  }
+}
+
+/* The cart badge and confirmation pulses — the one springy thing we do. */
+@keyframes pop-in {
+  from {
+    transform: scale(0.72);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@utility animate-pop {
+  animation: pop-in var(--m-spring) var(--ease-spring);
+}
+
+@keyframes rise-in {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@utility animate-rise {
+  animation: rise-in var(--m-page) var(--ease-page);
+}
