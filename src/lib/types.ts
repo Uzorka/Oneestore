@@ -61,6 +61,13 @@ export interface Product {
   readonly preps: readonly PrepOption[];
   readonly rating: number | null;
   readonly ratingCount: number;
+  /**
+   * Photograph of this exact product, served from `public/images/products/`.
+   * Optional: with no file there the request fails and the drawn artwork
+   * stays, so photos can be added one at a time. Becomes an `image_url`
+   * column when the catalog moves to Supabase.
+   */
+  readonly imageUrl?: string;
 }
 
 export interface Category {
@@ -100,6 +107,8 @@ export interface Meal {
   readonly description: string;
   readonly defaultServes: number;
   readonly ingredients: readonly MealIngredient[];
+  /** Dish photograph, served from `public/images/meals/`. Optional. */
+  readonly imageUrl?: string;
 }
 
 export type OrderStatus =
@@ -114,3 +123,6 @@ export type OrderStatus =
   | "cancelled"
   | "refunded"
   | "on_hold";
+
+/** Which drawing stands in for a product until its photograph exists. */
+export type ArtKind = "fish" | "prawn" | "crab" | "dried" | "meal";

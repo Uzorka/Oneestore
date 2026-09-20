@@ -120,6 +120,21 @@ src/
 supabase/migrations/      schema with RLS
 ```
 
+### Photographs
+
+Drop a file in and it appears — `public/images/products/<slug>.jpg`,
+`public/images/meals/<slug>.jpg`. No code change: with no file there the
+request 404s, `Artwork` catches it, and the drawn artwork underneath stays, so
+photographs can arrive one at a time. `public/images/README.md` lists the slugs
+and what the shots need to be.
+
+Until then each product is drawn rather than photographed, per species — a
+prawn as a prawn, a catfish with barbels, a mackerel striped — so a catalog
+reads as a shelf instead of ten copies of one placeholder. **No stock
+photography is shipped, deliberately.** A photo of a fish we did not catch,
+sold under a promise about the fish we did, is the one thing here that would
+be a lie.
+
 ### Design language
 
 Glass only ever sits **over content** — navigation, floating controls, sheets,

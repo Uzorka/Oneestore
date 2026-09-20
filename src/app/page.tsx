@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { BOTTOM_CLEARANCE, Container } from "@/components/Container";
 import { CutoffBanner } from "@/components/CutoffBanner";
-import { FishMark } from "@/components/FishMark";
+import { Artwork } from "@/components/Artwork";
 import { ProductCard } from "@/components/ProductCard";
 import { TopBar } from "@/components/TopBar";
 import { ButtonLink } from "@/components/ui/Button";
@@ -24,7 +24,9 @@ const PROMISE = [
 ] as const;
 
 export default function HomePage() {
-  const today = products.filter((p) => p.availability === "today").slice(0, 4);
+  // Five, because the grid runs to five columns on a wide screen and a row
+  // one short of full reads as something failing to load.
+  const today = products.filter((p) => p.availability === "today").slice(0, 5);
 
   return (
     <main>
@@ -65,10 +67,11 @@ export default function HomePage() {
             </div>
           </div>
 
-          <FishMark
-            tint="rgb(255 255 255 / 0.45)"
-            stroke="#0F5D57"
-            className="hidden h-[380px] rounded-[26px] lg:flex lg:flex-1"
+          <Artwork
+            kind="fish"
+            alt="Fresh fish, landed this morning"
+            seed="hero"
+            className="hidden h-[380px] rounded-[26px] lg:block lg:flex-1 xl:h-[440px]"
           />
         </Container>
       </section>
@@ -134,7 +137,7 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-5 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-5 lg:grid-cols-4 xl:grid-cols-5">
             {today.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}

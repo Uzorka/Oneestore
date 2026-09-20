@@ -4,13 +4,13 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useCart } from "@/components/CartProvider";
-import { FishMark, tintFor } from "@/components/FishMark";
+import { Artwork } from "@/components/Artwork";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/Button";
 import { WeightStepper } from "@/components/ui/WeightStepper";
 import { formatNaira, formatPerKg, formatWeight } from "@/lib/money";
 import { BOX_TIERS, normalizeWeight, priceBox, priceLine } from "@/lib/pricing";
-import { products as catalogProducts, productMap } from "@/lib/seed";
+import { artKindFor, products as catalogProducts, productMap, productPhoto } from "@/lib/seed";
 import type { CartLine, Grams, Product } from "@/lib/types";
 
 /**
@@ -148,7 +148,6 @@ export function BoxClient() {
             <div className="flex flex-col gap-2.5">
               {lines.map((line) => {
                 const product = catalog.get(line.productId) as Product;
-                const { tint, stroke } = tintFor(product.slug);
 
                 return (
                   <div
@@ -156,7 +155,13 @@ export function BoxClient() {
                     className="flex flex-col gap-3 rounded-[15px] border border-line bg-paper p-3 sm:flex-row sm:items-center"
                   >
                     <div className="flex min-w-0 items-center gap-3 sm:flex-1">
-                      <FishMark tint={tint} stroke={stroke} className="size-14 shrink-0 rounded-xl" label={false} />
+                      <Artwork
+                        kind={artKindFor(product)}
+                        src={productPhoto(product)}
+                        alt={product.name}
+                        seed={product.slug}
+                        className="size-14 shrink-0 rounded-xl"
+                      />
 
                       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span className="truncate text-sm font-bold">{product.name}</span>
@@ -190,9 +195,8 @@ export function BoxClient() {
         <section className="flex flex-col gap-3">
           <h2 className="text-[15px] font-bold">Drop something in</h2>
 
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 lg:grid-cols-4">
             {shelf.map((product) => {
-              const { tint, stroke } = tintFor(product.slug);
               const inBox = picked[product.id] ?? 0;
               const headroomG = ready ? remainingG(product.id) : product.stockG;
               const soldOut = headroomG < product.minOrderG;
@@ -204,7 +208,13 @@ export function BoxClient() {
                     inBox > 0 ? "border-[1.5px] border-lagoon" : "border-line"
                   }`}
                 >
-                  <FishMark tint={tint} stroke={stroke} className="h-20 w-full rounded-xl" label={false} />
+                  <Artwork
+                    kind={artKindFor(product)}
+                    src={productPhoto(product)}
+                    alt={product.name}
+                    seed={product.slug}
+                    className="h-24 w-full rounded-xl"
+                  />
 
                   <span className="flex flex-col gap-0.5">
                     <span className="truncate text-[13px] font-bold">{product.name}</span>

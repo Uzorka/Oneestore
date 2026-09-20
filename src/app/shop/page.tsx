@@ -64,7 +64,7 @@ export default function ShopPage() {
           return (
             <section key={category.slug} className="flex flex-col gap-3">
               <h3 className="text-[15px] font-bold">{category.name}</h3>
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-5 lg:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-5 lg:grid-cols-4 xl:grid-cols-5">
                 {inCategory.map((product) => (
                   <ProductCard key={product.id} product={product} />
                 ))}

@@ -1,9 +1,10 @@
 import Link from "next/link";
 
-import { FishMark, tintFor } from "@/components/FishMark";
+import { Artwork } from "@/components/Artwork";
 import { Badge } from "@/components/ui/Badge";
 import { Price } from "@/components/ui/Price";
 import { formatWeight } from "@/lib/money";
+import { artKindFor, productPhoto } from "@/lib/seed";
 import type { Product } from "@/lib/types";
 
 /**
@@ -12,7 +13,6 @@ import type { Product } from "@/lib/types";
  * with detail is a card nobody reads.
  */
 export function ProductCard({ product }: { product: Product }) {
-  const { tint, stroke } = tintFor(product.slug);
   const low = product.availability === "today" && product.stockG <= 6000;
 
   return (
@@ -20,7 +20,13 @@ export function ProductCard({ product }: { product: Product }) {
       href={`/product/${product.slug}`}
       className="flex flex-col gap-2.5 rounded-card border border-line bg-paper p-2.5 transition-transform duration-[var(--m-fast)] ease-[var(--ease-fast)] hover:-translate-y-0.5"
     >
-      <FishMark tint={tint} stroke={stroke} className="h-26 rounded-xl" />
+      <Artwork
+        kind={artKindFor(product)}
+        src={productPhoto(product)}
+        alt={product.name}
+        seed={product.slug}
+        className="h-32 rounded-xl md:h-40"
+      />
 
       <span className="text-sm leading-tight font-bold">{product.name}</span>
 

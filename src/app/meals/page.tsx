@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { BOTTOM_CLEARANCE, Container } from "@/components/Container";
-import { FishMark, tintFor } from "@/components/FishMark";
+import { Artwork } from "@/components/Artwork";
 import { PageBar } from "@/components/TopBar";
 import { formatNaira } from "@/lib/money";
 import { mealLines, priceBasket } from "@/lib/pricing";
-import { meals, productMap } from "@/lib/seed";
+import { mealPhoto, meals, productMap } from "@/lib/seed";
 
 export const metadata: Metadata = {
   title: "Shop by Meal",
@@ -34,7 +34,6 @@ export default function MealsPage() {
       meal,
       fromKobo: priceBasket(required, catalog).payableKobo,
       names,
-      ...tintFor(meal.slug),
     };
   });
 
@@ -53,14 +52,20 @@ export default function MealsPage() {
           </p>
         </header>
 
-        <div className="grid gap-3 md:grid-cols-2 md:gap-5 lg:gap-6">
-          {cards.map(({ meal, fromKobo, names, tint, stroke }) => (
+        <div className="grid gap-3 md:grid-cols-2 md:gap-5 lg:gap-6 xl:grid-cols-4">
+          {cards.map(({ meal, fromKobo, names }) => (
             <Link
               key={meal.slug}
               href={`/meals/${meal.slug}`}
               className="flex flex-col gap-3 rounded-card border border-line bg-paper p-3 transition-transform duration-[var(--m-fast)] hover:-translate-y-0.5 md:p-4"
             >
-              <FishMark tint={tint} stroke={stroke} className="h-36 w-full rounded-[15px] md:h-44" label={false} />
+              <Artwork
+                kind="meal"
+                src={mealPhoto(meal)}
+                alt={meal.name}
+                seed={meal.slug}
+                className="h-40 w-full rounded-[15px] md:h-48"
+              />
 
               <div className="flex flex-col gap-1.5">
                 <span className="w-fit rounded-full bg-sand px-2.5 py-1 text-[11px] font-semibold text-ink-soft">

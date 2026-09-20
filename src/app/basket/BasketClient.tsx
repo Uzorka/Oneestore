@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 
 import { useCart } from "@/components/CartProvider";
-import { FishMark, tintFor } from "@/components/FishMark";
+import { Artwork } from "@/components/Artwork";
 import { Badge } from "@/components/ui/Badge";
 import { ButtonLink } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -13,7 +13,7 @@ import { cartWeightG, isEmpty, priceCart } from "@/lib/cart";
 import { ZONES, deliveryFeeKobo, findZone, toFreeDeliveryKobo } from "@/lib/delivery";
 import { formatNaira, formatWeight } from "@/lib/money";
 import { priceDrift, priceLine } from "@/lib/pricing";
-import { productMap } from "@/lib/seed";
+import { artKindFor, productMap, productPhoto } from "@/lib/seed";
 
 /**
  * The basket.
@@ -88,7 +88,6 @@ export function BasketClient() {
           const prep = product.preps.find((p) => p.id === line.prepId);
           const priced = priceLine(product, line.prepId, line.weightG);
           const drift = priceDrift(line, product);
-          const { tint, stroke } = tintFor(product.slug);
           const headroomG = remainingG(product.id, line.id);
 
           return (
@@ -101,7 +100,13 @@ export function BasketClient() {
                 header rather than eighteen pixels of product name.
               */}
               <Link href={`/product/${product.slug}`} className="flex gap-3">
-                <FishMark tint={tint} stroke={stroke} className="size-16 shrink-0 rounded-xl" label={false} />
+                <Artwork
+                  kind={artKindFor(product)}
+                  src={productPhoto(product)}
+                  alt={product.name}
+                  seed={product.slug}
+                  className="size-16 shrink-0 rounded-xl"
+                />
 
                 <span className="flex min-w-0 flex-1 flex-col gap-1">
                   <span className="flex items-start gap-2">

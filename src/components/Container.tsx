@@ -3,9 +3,11 @@ import type { ReactNode } from "react";
 /**
  * The measure the whole site is laid out on.
  *
- * Content stops growing at 1180px. Past that a product grid turns into a
- * horizon of cards and body copy runs to unreadable line lengths, so the
- * page centres instead of stretching.
+ * Grids want width — a catalog on a 1440px monitor should show a shelf, not a
+ * column with two empty margins. Prose does not: a paragraph run to 1400px is
+ * unreadable. So the container is generous and long-form text caps itself with
+ * `max-w-prose` locally, rather than the whole site being narrowed to suit the
+ * few places that carry sentences.
  */
 export function Container({
   className = "",
@@ -15,7 +17,7 @@ export function Container({
   children: ReactNode;
 }) {
   return (
-    <div className={`mx-auto w-full max-w-[1180px] px-4.5 md:px-8 lg:px-12 ${className}`}>
+    <div className={`mx-auto w-full max-w-[1460px] px-4.5 md:px-8 lg:px-10 xl:px-14 ${className}`}>
       {children}
     </div>
   );

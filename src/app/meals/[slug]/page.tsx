@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { ACTION_BAR_CLEARANCE, Container } from "@/components/Container";
-import { FishMark, tintFor } from "@/components/FishMark";
+import { Artwork } from "@/components/Artwork";
 import { PageBar } from "@/components/TopBar";
-import { mealBySlug, meals } from "@/lib/seed";
+import { mealBySlug, mealPhoto, meals } from "@/lib/seed";
 import { MealClient } from "./MealClient";
 
 export function generateStaticParams() {
@@ -28,19 +28,18 @@ export default async function MealPage({ params }: { params: Promise<{ slug: str
   const meal = mealBySlug(slug);
   if (meal === undefined) notFound();
 
-  const { tint, stroke } = tintFor(meal.slug);
-
   return (
     <main>
       <PageBar title={meal.name} backHref="/meals" />
 
       <Container className={`flex flex-col gap-6 pt-[92px] md:pt-[112px] ${ACTION_BAR_CLEARANCE}`}>
         <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-8">
-          <FishMark
-            tint={tint}
-            stroke={stroke}
-            className="h-40 w-full rounded-card md:h-52 lg:h-56 lg:flex-1"
-            label={false}
+          <Artwork
+            kind="meal"
+            src={mealPhoto(meal)}
+            alt={meal.name}
+            seed={meal.slug}
+            className="h-44 w-full rounded-card md:h-60 lg:h-72 lg:flex-1"
           />
 
           <div className="flex flex-col gap-1.5 lg:flex-1">

@@ -4,13 +4,13 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useCart } from "@/components/CartProvider";
-import { FishMark, tintFor } from "@/components/FishMark";
+import { Artwork } from "@/components/Artwork";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/Button";
 import { WeightStepper } from "@/components/ui/WeightStepper";
 import { formatNaira, formatPerKg, formatWeight } from "@/lib/money";
 import { mealLines, priceBasket, priceLine } from "@/lib/pricing";
-import { productMap } from "@/lib/seed";
+import { artKindFor, productMap, productPhoto } from "@/lib/seed";
 import type { Grams, Meal, Product } from "@/lib/types";
 
 /**
@@ -137,7 +137,6 @@ export function MealClient({ meal }: { meal: Meal }) {
 
               const off = excluded.has(product.id);
               const line = lines.find((l) => l.productId === product.id);
-              const { tint, stroke } = tintFor(product.slug);
 
               const lineTotal =
                   off || line === undefined
@@ -157,7 +156,13 @@ export function MealClient({ meal }: { meal: Meal }) {
                     }`}
                   >
                     <div className="flex min-w-0 items-center gap-3 sm:flex-1">
-                      <FishMark tint={tint} stroke={stroke} className="size-14 shrink-0 rounded-xl" label={false} />
+                      <Artwork
+                        kind={artKindFor(product)}
+                        src={productPhoto(product)}
+                        alt={product.name}
+                        seed={product.slug}
+                        className="size-14 shrink-0 rounded-xl"
+                      />
 
                       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span className="flex items-center gap-1.5">

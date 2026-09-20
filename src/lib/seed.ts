@@ -1,5 +1,5 @@
 import { naira } from "./money";
-import type { Category, Meal, PrepOption, Product } from "./types";
+import type { ArtKind, Category, Meal, PrepOption, Product } from "./types";
 
 /**
  * Seed catalog.
@@ -309,4 +309,39 @@ export const meals: readonly Meal[] = [
 
 export function mealBySlug(slug: string): Meal | undefined {
   return meals.find((m) => m.slug === slug);
+}
+
+// ---------------------------------------------------------------------------
+// Imagery
+// ---------------------------------------------------------------------------
+
+/**
+ * Where a product's photograph lives.
+ *
+ * To add one: drop the file in `public/images/products/` named after the
+ * product's slug — `croaker.jpg`, `tiger-prawns.jpg` — and it appears. No code
+ * change. Until then the request 404s and the drawn artwork stays on screen,
+ * so photographs can arrive one at a time rather than all at once.
+ */
+export function productPhoto(product: Product): string {
+  return product.imageUrl ?? `/images/products/${product.slug}.jpg`;
+}
+
+/** The same, for dishes: `public/images/meals/seafood-okra.jpg`. */
+export function mealPhoto(meal: Meal): string {
+  return meal.imageUrl ?? `/images/meals/${meal.slug}.jpg`;
+}
+
+/** Which drawing stands in for a product before its photograph arrives. */
+export function artKindFor(product: Product): ArtKind {
+  switch (product.categorySlug) {
+    case "prawns-shrimp":
+      return "prawn";
+    case "shellfish":
+      return "crab";
+    case "smoked-dried":
+      return "dried";
+    default:
+      return "fish";
+  }
 }

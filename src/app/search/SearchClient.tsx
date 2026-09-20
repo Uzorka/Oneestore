@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import { FishMark, tintFor } from "@/components/FishMark";
+import { Artwork } from "@/components/Artwork";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Price } from "@/components/ui/Price";
-import { categories, products, searchProducts } from "@/lib/seed";
+import { artKindFor, categories, productBySlug, productPhoto, products, searchProducts } from "@/lib/seed";
 
 const POPULAR = ["croaker", "tiger-prawns", "catfish", "titus"];
 const RECENT = ["croaker", "apoda", "ede", "panla"];
@@ -143,15 +143,23 @@ function ResultRow({
   categorySlug: string;
   priceKobo: number;
 }) {
-  const { tint, stroke } = tintFor(slug);
   const category = categories.find((c) => c.slug === categorySlug);
+  const product = productBySlug(slug);
 
   return (
     <Link
       href={`/product/${slug}`}
       className="flex items-center gap-3 rounded-[15px] border border-line bg-paper p-2.5"
     >
-      <FishMark tint={tint} stroke={stroke} className="size-14 shrink-0 rounded-xl" label={false} />
+      {product !== undefined && (
+        <Artwork
+          kind={artKindFor(product)}
+          src={productPhoto(product)}
+          alt={product.name}
+          seed={slug}
+          className="size-14 shrink-0 rounded-xl"
+        />
+      )}
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-sm font-bold">{name}</span>
         <span className="text-[11.5px] text-ink-muted">{category?.name}</span>
