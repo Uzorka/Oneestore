@@ -143,8 +143,13 @@ export function ProductCustomizer({ product }: { product: Product }) {
         </span>
       </div>
 
-      {/* The purchase bar stays reachable while the customer is still deciding. */}
-      <div className="glass-light fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-x-0 border-b-0 px-4 pt-3 pb-4">
+      {/*
+        On a phone the purchase bar floats so it stays reachable while the
+        customer is still deciding. From `lg` the whole panel is already beside
+        the photograph and in view, so it sits inline instead of pinning itself
+        over a screen that does not need it.
+      */}
+      <div className="glass-light fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-x-0 border-b-0 px-4 pt-3 pb-4 lg:static lg:rounded-card lg:border lg:px-4 lg:py-4 lg:shadow-none">
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="text-[11px] text-ink-muted">
             {formatWeight(line.weightG)}

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { BOTTOM_CLEARANCE, Container } from "@/components/Container";
 import { PageBar } from "@/components/TopBar";
 
 import { CheckoutClient } from "./CheckoutClient";
@@ -10,9 +11,9 @@ export default function CheckoutPage() {
   return (
     <main>
       <PageBar title="Checkout" backHref="/basket" />
-      <div className="px-4.5 pt-[86px] pb-28">
+      <Container className={`max-w-[720px] pt-[92px] md:pt-[112px] ${BOTTOM_CLEARANCE}`}>
         <CheckoutClient />
-      </div>
+      </Container>
     </main>
   );
 }

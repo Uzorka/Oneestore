@@ -2,16 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { ReactNode } from "react";
 
 import { useCart } from "@/components/CartProvider";
 import { cartLineCount } from "@/lib/cart";
-import type { ReactNode } from "react";
 
 /**
- * The mobile navigation: a floating glass bar over the page content.
+ * Phone navigation: a floating glass bar over the page.
  *
- * Five destinations, not the desktop menu shrunk down. Everything else lives in
- * bottom sheets and contextual menus, within reach of a thumb.
+ * Five destinations within thumb reach. Orders are not one of them — an
+ * order belongs to the person who placed it, so it lives inside Account
+ * rather than competing for a slot with shopping.
+ *
+ * This is a phone control. From `md` up the top bar carries navigation and
+ * this is hidden, rather than stretched across a screen it was never drawn
+ * for.
  */
 
 interface Tab {
@@ -27,16 +32,7 @@ const icon = (paths: ReactNode) => (
 );
 
 const TABS: readonly Tab[] = [
-  {
-    href: "/",
-    label: "Home",
-    icon: icon(
-      <>
-        <path d="M4 11l8-6.5 8 6.5" />
-        <path d="M6.5 10v9h11v-9" />
-      </>,
-    ),
-  },
+  { href: "/", label: "Home", icon: icon(<><path d="M4 11l8-6.5 8 6.5" /><path d="M6.5 10v9h11v-9" /></>) },
   {
     href: "/shop",
     label: "Shop",
@@ -49,26 +45,7 @@ const TABS: readonly Tab[] = [
       </>,
     ),
   },
-  {
-    href: "/search",
-    label: "Search",
-    icon: icon(
-      <>
-        <circle cx="11" cy="11" r="6.5" />
-        <path d="M16 16l4.5 4.5" />
-      </>,
-    ),
-  },
-  {
-    href: "/orders",
-    label: "Orders",
-    icon: icon(
-      <>
-        <path d="M6 3.5h9l4 4v13H6z" />
-        <path d="M9 11h7M9 15h7" />
-      </>,
-    ),
-  },
+  { href: "/search", label: "Search", icon: icon(<><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></>) },
   {
     href: "/basket",
     label: "Basket",
@@ -80,27 +57,27 @@ const TABS: readonly Tab[] = [
       </>,
     ),
   },
+  {
+    href: "/account",
+    label: "Account",
+    icon: icon(<><circle cx="12" cy="8.5" r="3.8" /><path d="M4.5 20c1.4-4 4.1-5.5 7.5-5.5s6.1 1.5 7.5 5.5" /></>),
+  },
 ];
 
 export function BottomNav() {
   const pathname = usePathname();
   const { state, ready } = useCart();
 
-  // The badge appears only once the saved basket has been read, so it never
-  // flashes an empty count and then jumps.
-  const count = ready ? cartLineCount(state) : 0;
-
-  /**
-   * The product page has its own sticky purchase bar. Two stacked bars at the
-   * bottom of a phone is one too many, and the purchase bar is the one that
-   * matters there — so the nav stands down.
-   */
+  // The product page has its own sticky purchase bar on a phone; two stacked
+  // bars is one too many, and the purchase bar is the one that matters there.
   if (pathname.startsWith("/product/")) return null;
+
+  const count = ready ? cartLineCount(state) : 0;
 
   return (
     <nav
       aria-label="Main"
-      className="glass-light fixed right-3.5 bottom-4 left-3.5 z-40 flex h-[68px] items-stretch rounded-[22px] px-1.5 py-[7px]"
+      className="glass-light fixed right-3.5 bottom-4 left-3.5 z-40 flex h-[68px] items-stretch rounded-[22px] px-1.5 py-[7px] md:hidden"
     >
       {TABS.map((tab) => {
         const active = tab.href === "/" ? pathname === "/" : pathname.startsWith(tab.href);

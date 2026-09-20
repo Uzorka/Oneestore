@@ -210,7 +210,7 @@ export function CheckoutClient() {
       {step === 0 && (
         <section className="animate-rise flex flex-col gap-4 rounded-card border border-line bg-paper p-4">
           <div className="flex flex-col gap-1">
-            <h2 className="font-display text-[19px] font-semibold">What is your number?</h2>
+            <h2 className="font-display text-[19px] font-semibold md:text-[23px]">What is your number?</h2>
             <p className="text-[12.5px] leading-snug text-ink-muted">
               The rider calls it, and your order updates go to it on WhatsApp.
             </p>
@@ -325,11 +325,11 @@ export function CheckoutClient() {
       {/* 2 — Delivery */}
       {step === 1 && (
         <section className="animate-rise flex flex-col gap-4 rounded-card border border-line bg-paper p-4">
-          <h2 className="font-display text-[19px] font-semibold">Where are we delivering?</h2>
+          <h2 className="font-display text-[19px] font-semibold md:text-[23px]">Where are we delivering?</h2>
 
           <div className="flex flex-col gap-2">
             <span className="text-[11.5px] font-semibold text-ink-muted">Area</span>
-            <div className="flex flex-col gap-2">
+            <div className="grid gap-2 sm:grid-cols-2">
               {ZONES.map((z) => {
                 const on = z.id === draft.zoneId;
                 return (
@@ -414,7 +414,7 @@ export function CheckoutClient() {
       {/* 3 — Schedule */}
       {step === 2 && (
         <section className="animate-rise flex flex-col gap-4 rounded-card border border-line bg-paper p-4">
-          <h2 className="font-display text-[19px] font-semibold">When should it arrive?</h2>
+          <h2 className="font-display text-[19px] font-semibold md:text-[23px]">When should it arrive?</h2>
 
           <div className="flex flex-col gap-2">
             <span className="text-[11.5px] font-semibold text-ink-muted">Day</span>
@@ -524,7 +524,7 @@ export function CheckoutClient() {
       {/* 4 and 5 — Payment and Review, next milestone */}
       {step === 3 && (
         <section className="animate-rise flex flex-col gap-3 rounded-card border border-line bg-paper p-4">
-          <h2 className="font-display text-[19px] font-semibold">Payment</h2>
+          <h2 className="font-display text-[19px] font-semibold md:text-[23px]">Payment</h2>
           <p className="text-[12.5px] leading-relaxed text-ink-soft">
             Paystack — card, bank transfer, USSD — and pay-on-delivery are the next milestone.
             Everything up to this point is real: your number is verified, your address is saved, and

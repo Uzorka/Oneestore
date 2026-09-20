@@ -49,8 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AccountProvider>
           <CartProvider>
             <ToastProvider>
-              {/* Floating chrome overlays content, so every page ends clear of it. */}
-              <div>{children}</div>
+              {children}
               <BottomNav />
             </ToastProvider>
           </CartProvider>

@@ -75,7 +75,8 @@ export function BasketClient() {
         </button>
       </div>
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-10">
+        <div className="flex flex-1 flex-col gap-3">
         {state.lines.map((line) => {
           const product = catalog.get(line.productId);
           if (product === undefined) return null;
@@ -194,7 +195,6 @@ export function BasketClient() {
             </div>
           );
         })}
-      </div>
 
       <section className="flex flex-col gap-2.5">
         <h2 className="text-[13px] font-bold">Where are we delivering?</h2>
@@ -225,8 +225,9 @@ export function BasketClient() {
           })}
         </div>
       </section>
+        </div>
 
-      <section className="flex flex-col gap-3 rounded-card border border-line bg-paper p-4">
+      <section className="flex flex-col gap-3 rounded-card border border-line bg-paper p-4 lg:sticky lg:top-[112px] lg:w-[340px] lg:shrink-0">
         <Row label={`Seafood (${formatWeight(totals.totalWeightG)})`} value={formatNaira(totals.goodsKobo)} />
         {totals.prepKobo > 0 && (
           <Row label="Cleaning & cutting" value={formatNaira(totals.prepKobo)} />
@@ -269,9 +270,21 @@ export function BasketClient() {
         <span className="text-[11px] leading-snug text-ink-muted">
           Final amount follows the real packed weight — any difference goes to your wallet.
         </span>
-      </section>
 
-      <div className="glass-light fixed inset-x-0 bottom-0 z-30 flex flex-col gap-1.5 border-x-0 border-b-0 px-4 pt-3 pb-[104px]">
+        {/* From lg the action belongs in the summary, in view beside the lines. */}
+        <div className="hidden flex-col gap-1.5 pt-1 lg:flex">
+          <ButtonLink href="/checkout" size="lg" fullWidth>
+            Checkout — {formatNaira(totalKobo)}
+          </ButtonLink>
+          <span className="text-center text-[10.5px] text-ink-muted">
+            Verify, choose an address and a slot — payment arrives next.
+          </span>
+        </div>
+      </section>
+      </div>
+
+      {/* On a phone it floats, because the summary is far below the fold. */}
+      <div className="glass-light fixed inset-x-0 bottom-0 z-30 flex flex-col gap-1.5 border-x-0 border-b-0 px-4 pt-3 pb-[104px] lg:hidden">
         <ButtonLink href="/checkout" size="lg" fullWidth>
           Checkout — {formatNaira(totalKobo)}
         </ButtonLink>

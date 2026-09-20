@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { BOTTOM_CLEARANCE, Container } from "@/components/Container";
 import { PageBar } from "@/components/TopBar";
 
 import { SearchClient } from "./SearchClient";
@@ -10,9 +11,9 @@ export default function SearchPage() {
   return (
     <main>
       <PageBar title="Search" backHref="/" />
-      <div className="px-4.5 pt-[86px] pb-28">
+      <Container className={`max-w-[760px] pt-[92px] md:pt-[112px] ${BOTTOM_CLEARANCE}`}>
         <SearchClient />
-      </div>
+      </Container>
     </main>
   );
 }

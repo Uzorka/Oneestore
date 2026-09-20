@@ -92,7 +92,7 @@ export function SearchClient() {
 
           <section className="flex flex-col gap-3">
             <h2 className="text-xs font-semibold tracking-[0.07em] text-ink-muted uppercase">Categories</h2>
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
               {categories.map((category) => (
                 <Link
                   key={category.slug}

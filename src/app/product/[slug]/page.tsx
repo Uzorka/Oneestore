@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { FishMark, tintFor } from "@/components/FishMark";
+import { BOTTOM_CLEARANCE, Container } from "@/components/Container";
 import { PageBar } from "@/components/TopBar";
 import { Badge } from "@/components/ui/Badge";
 import { Price } from "@/components/ui/Price";
@@ -41,9 +42,16 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     <main>
       <PageBar title={product.name} backHref="/shop" />
 
-      <FishMark tint={tint} stroke={stroke} className="h-[262px]" label={false} />
+      <Container className={`pt-[92px] md:pt-[112px] ${BOTTOM_CLEARANCE}`}>
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-12">
+          <FishMark
+            tint={tint}
+            stroke={stroke}
+            className="h-[262px] rounded-card md:h-[360px] lg:sticky lg:top-[112px] lg:h-[460px] lg:flex-1"
+            label={false}
+          />
 
-      <div className="flex flex-col gap-4.5 px-4.5 pt-4.5 pb-32">
+          <div className="flex flex-col gap-4.5 lg:w-[420px] lg:shrink-0">
         <header className="flex flex-col gap-2.5">
           <div className="flex items-start gap-2.5">
             <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -77,11 +85,13 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
 
         <ProductCustomizer product={product} />
 
-        <section className="flex flex-col gap-2">
-          <h2 className="font-display text-[15px] font-semibold">Good to know</h2>
-          <p className="text-[12.5px] leading-relaxed text-ink-soft">{product.description}</p>
-        </section>
-      </div>
+            <section className="flex flex-col gap-2">
+              <h2 className="font-display text-[15px] font-semibold">Good to know</h2>
+              <p className="text-[12.5px] leading-relaxed text-ink-soft">{product.description}</p>
+            </section>
+          </div>
+        </div>
+      </Container>
     </main>
   );
 }
