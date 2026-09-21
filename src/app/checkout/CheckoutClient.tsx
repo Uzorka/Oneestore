@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { useAccount } from "@/components/AccountProvider";
+import { AreaPicker } from "@/components/AreaPicker";
 import { useCart } from "@/components/CartProvider";
 import { useCatalog } from "@/components/CatalogProvider";
 import { useOrders } from "@/components/OrdersProvider";
@@ -14,7 +15,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { formatAddress, validateAddress } from "@/lib/address";
 import type { AddressDraft, AddressErrors } from "@/lib/address";
 import { isEmpty, priceCart } from "@/lib/cart";
-import { ZONES, availableSlots, deliveryDays, deliveryFeeKobo, findZone } from "@/lib/delivery";
+import { availableSlots, deliveryDays, deliveryFeeKobo, findZone } from "@/lib/delivery";
 import { formatNaira, formatWeight } from "@/lib/money";
 import { resendInSeconds } from "@/lib/otp";
 import { formatNigerianMobile, maskNigerianMobile, phoneError, toE164 } from "@/lib/phone";
@@ -39,6 +40,8 @@ const STEPS = ["Contact", "Delivery", "Schedule", "Confirm"] as const;
 type StepIndex = 0 | 1 | 2 | 3;
 
 const EMPTY_DRAFT: AddressDraft = {
+  lga: "",
+  area: "",
   zoneId: "",
   street: "",
   landmark: "",
@@ -149,6 +152,8 @@ export function CheckoutClient() {
     setPickedBook(true);
     setTouched({});
     setDraft({
+      lga: address.lga,
+      area: address.area,
       zoneId: address.zoneId,
       street: address.street,
       landmark: address.landmark,
@@ -269,7 +274,7 @@ export function CheckoutClient() {
   }
 
   function saveAddress() {
-    setTouched({ zoneId: true, street: true, landmark: true, recipientName: true, recipientPhone: true });
+    setTouched({ area: true, zoneId: true, street: true, landmark: true, recipientName: true, recipientPhone: true });
     if (Object.keys(errors).length > 0) return;
 
     /*
@@ -497,36 +502,18 @@ export function CheckoutClient() {
 
           {savedId === null && (
           <>
-          <div className="flex flex-col gap-2">
-            <span className="text-[11.5px] font-semibold text-ink-muted">Area</span>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {ZONES.map((z) => {
-                const on = z.id === draft.zoneId;
-                return (
-                  <button
-                    key={z.id}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() => setDraft((d) => ({ ...d, zoneId: z.id }))}
-                    className={`flex min-h-14 items-center gap-3 rounded-[13px] px-3.5 py-3 text-left ${
-                      on ? "border-[1.5px] border-lagoon bg-tint-mint" : "border border-line bg-paper"
-                    }`}
-                  >
-                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span className="text-[13px] font-bold">{z.name}</span>
-                      <span className="truncate text-[11px] text-ink-muted">{z.areas.join(", ")}</span>
-                    </span>
-                    <span className="shrink-0 text-[12.5px] font-bold">
-                      {deliveryFeeKobo(z, totals.goodsKobo) === 0 ? "Free" : formatNaira(z.feeKobo)}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            {touched.zoneId === true && errors.zoneId !== undefined && (
-              <span className="text-[11.5px] font-semibold text-clay">{errors.zoneId}</span>
-            )}
-          </div>
+          <AreaPicker
+            lga={draft.lga}
+            area={draft.area}
+            error={touched.area === true ? errors.area : undefined}
+            onPick={(picked) => {
+              // The zone travels with the area. Storing it here rather than
+              // deriving it later keeps the order priced on what the customer
+              // actually chose, even if the map is redrawn afterwards.
+              setDraft((d) => ({ ...d, lga: picked.lga, area: picked.name, zoneId: picked.zoneId }));
+              setTouched((t) => ({ ...t, area: true }));
+            }}
+          />
 
           <Field
             label="Street and house number"

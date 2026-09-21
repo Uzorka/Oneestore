@@ -56,6 +56,8 @@ let pool: pg.Pool;
 
 const ADDRESS: Address = {
   id: "a1",
+  lga: "Eti-Osa",
+  area: "Ikoyi",
   zoneId: "island",
   street: "14 Admiralty Way, Lekki Phase 1",
   landmark: "Opposite the Total filling station",

@@ -176,10 +176,12 @@ export async function placeOrder(tx: SqlExecutor, args: PlaceOrderArgs): Promise
   if (existing.rows.length > 0) return { id: existing.rows[0]?.id as string, created: false };
 
   const address = await tx.query<{ id: string }>(
-    `insert into addresses (customer_id, zone_id, street, landmark, recipient_name, recipient_phone, instructions)
-     values ($1, $2, $3, $4, $5, $6, $7)
+    `insert into addresses
+       (customer_id, zone_id, lga, area, street, landmark, recipient_name, recipient_phone, instructions)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      returning id`,
-    [customerId, order.address.zoneId, order.address.street, order.address.landmark,
+    [customerId, order.address.zoneId, order.address.lga, order.address.area,
+     order.address.street, order.address.landmark,
      order.address.recipientName, order.address.recipientPhone, order.address.instructions],
   );
 
@@ -329,7 +331,7 @@ export async function listOrders(tx: SqlExecutor, phone: string): Promise<readon
 export async function getOrder(tx: SqlExecutor, code: string): Promise<Order | null> {
   const { rows } = await tx.query<Record<string, unknown>>(
     `select o.*, c.phone,
-            a.zone_id as addr_zone, a.street, a.landmark,
+            a.zone_id as addr_zone, a.lga, a.area, a.street, a.landmark,
             a.recipient_name, a.recipient_phone, a.instructions
      from orders o
      join customers c on c.id = o.customer_id
@@ -393,6 +395,8 @@ export async function getOrder(tx: SqlExecutor, code: string): Promise<Order | n
     phone: String(row.phone),
     address: {
       id: String(row.address_id ?? ""),
+      lga: String(row.lga ?? ""),
+      area: String(row.area ?? ""),
       zoneId: String(row.addr_zone ?? row.zone_id ?? ""),
       street: String(row.street ?? ""),
       landmark: String(row.landmark ?? ""),

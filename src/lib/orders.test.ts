@@ -25,6 +25,8 @@ const croaker = byId.get("croaker") as Product;
 
 const ADDRESS: Address = {
   id: "a1",
+  lga: "Eti-Osa",
+  area: "Ikoyi",
   zoneId: "lekki-ajah",
   street: "14 Admiralty Way, Lekki Phase 1",
   landmark: "Opposite the Total filling station",

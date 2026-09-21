@@ -132,6 +132,7 @@ src/
     wallet.ts             the credit ledger — append-only, never negative
     complaints.ts         the 2-hour window and how one is settled
     catalog.ts            the morning board: draft, publish, overlay
+    lagos.ts              the 20 LGAs, their areas, and the zone each falls in
     reorder.ts            ordering the same thing at today's prices
     rows.ts               database rows <-> domain objects
     supabase.ts           the browser client, when a project is configured
@@ -334,6 +335,19 @@ the same types. Neither is a rewrite — each is one object to replace.
   running the app against a real database and driving two separate browsers:
   a customer places an order on one, the shop sees it on the other, weighs it
   short, delivers it — and the credit lands in the customer's wallet.
+
+- M11: where in Lagos. The customer was being asked to choose a *pricing
+  zone* — the shop's own vocabulary, and not something anyone knows about
+  their own house. They now pick their area and local government from a
+  searchable list of all twenty LGAs, and the zone and the delivery fee follow
+  from it.
+
+  **There are no streets in that list, deliberately.** Lagos has tens of
+  thousands and this repository has none of them; a dropdown of invented
+  street names is worse than a text field, because the customer either picks
+  one that does not exist or cannot find theirs and leaves. Streets are typed,
+  and the landmark underneath is what the rider actually uses. Real street
+  data means a geocoding service — Google Places or similar — and an API key.
 
 **Next:** the catalog and the price board still live in the browser overlay,
 so a price published on one device is published only there. Same pattern,

@@ -237,6 +237,8 @@ describe("the SMS seam", () => {
 // ---------------------------------------------------------------------------
 
 const DRAFT: AddressDraft = {
+  lga: "Eti-Osa",
+  area: "Ikoyi",
   zoneId: "island",
   street: "14B Fola Osibo Street",
   landmark: "Opposite the blue mosque, after Shoprite",
@@ -266,9 +268,17 @@ describe("address validation", () => {
     expect(validateAddress({ ...DRAFT, street: "14B" }).street).toMatch(/too short/i);
   });
 
-  it("needs a zone we actually deliver to", () => {
-    expect(validateAddress({ ...DRAFT, zoneId: "" }).zoneId).toBeTruthy();
-    expect(validateAddress({ ...DRAFT, zoneId: "abuja" }).zoneId).toMatch(/don't deliver/i);
+  it("needs somewhere in Lagos it can actually reach", () => {
+    // The customer picks an area; the zone follows from it. Asking them to
+    // choose a pricing band was asking them to guess.
+    expect(validateAddress({ ...DRAFT, area: "", lga: "" }).area).toBeTruthy();
+    expect(validateAddress({ ...DRAFT, area: "Wuse II", lga: "Abuja" }).area).toMatch(/don't deliver/i);
+  });
+
+  it("refuses an area and a zone that do not belong together", () => {
+    // A mismatched pair would quote the fee for one run and send the order on
+    // another, which is the sort of error that is only noticed at the door.
+    expect(validateAddress({ ...DRAFT, zoneId: "outer" }).area).toMatch(/pick your area again/i);
   });
 
   it("needs someone to ask for and a number to call", () => {
@@ -278,8 +288,11 @@ describe("address validation", () => {
 
   it("reads back the way a packing slip prints it", () => {
     const address: Address = { ...DRAFT, id: "a1", isDefault: true };
+
+    // The place, not the pricing band: "Mainland central" is a delivery run,
+    // "Ikoyi, Eti-Osa" is where somebody lives.
     expect(formatAddress(address)).toBe(
-      "14B Fola Osibo Street · Opposite the blue mosque, after Shoprite · Lagos Island",
+      "14B Fola Osibo Street · Opposite the blue mosque, after Shoprite · Ikoyi, Eti-Osa",
     );
   });
 });

@@ -1,4 +1,5 @@
 import { findZone } from "./delivery";
+import { zoneForArea } from "./lagos";
 import type { E164 } from "./phone";
 
 /**
@@ -12,6 +13,13 @@ import type { E164 } from "./phone";
 
 export interface Address {
   readonly id: string;
+  /**
+   * Where in Lagos, in the customer's own words. The zone is derived from the
+   * pair rather than asked for: nobody knows which pricing band their house
+   * is in, and asking them to guess is how an order goes to the wrong run.
+   */
+  readonly lga: string;
+  readonly area: string;
   readonly zoneId: string;
   readonly street: string;
   /** "Opposite the blue mosque, after Shoprite". Required. */
@@ -24,7 +32,7 @@ export interface Address {
 
 export type AddressDraft = Omit<Address, "id" | "isDefault">;
 
-export type AddressField = "zoneId" | "street" | "landmark" | "recipientName" | "recipientPhone";
+export type AddressField = "area" | "zoneId" | "street" | "landmark" | "recipientName" | "recipientPhone";
 
 export type AddressErrors = Partial<Record<AddressField, string>>;
 
@@ -40,10 +48,25 @@ const MIN_LANDMARK = 4;
 export function validateAddress(draft: Partial<AddressDraft>): AddressErrors {
   const errors: AddressErrors = {};
 
+  /*
+    The area is what the customer picks; the zone follows from it. Both are
+    checked because a mismatched pair — an area from one list and a zone from
+    another — would quote the wrong delivery fee, and the pair is what the
+    order is priced on.
+  */
+  const lga = (draft.lga ?? "").trim();
+  const area = (draft.area ?? "").trim();
   const zoneId = (draft.zoneId ?? "").trim();
-  if (zoneId === "") {
-    errors.zoneId = "Choose the area we are delivering to.";
-  } else if (findZone(zoneId) === undefined) {
+
+  if (area === "" || lga === "") {
+    errors.area = "Choose where in Lagos we are delivering.";
+  } else if (zoneForArea(lga, area) === undefined) {
+    errors.area = "We don't deliver there yet.";
+  } else if (zoneId !== zoneForArea(lga, area)) {
+    errors.area = "Pick your area again so we can work out the delivery.";
+  }
+
+  if (zoneId !== "" && findZone(zoneId) === undefined) {
     errors.zoneId = "We don't deliver to that area yet.";
   }
 
@@ -76,10 +99,18 @@ export function isValidAddress(draft: Partial<AddressDraft>): boolean {
 
 /** One line, the way it reads on a packing slip and a confirmation screen. */
 export function formatAddress(address: Address): string {
-  const zone = findZone(address.zoneId);
-  const parts = [address.street, address.landmark, zone?.name].filter(
+  /*
+    The area and local government, not the pricing zone. "Mainland central" is
+    what the shop calls a delivery run; "Yaba, Lagos Mainland" is where the
+    customer lives, and it is what a rider reading this back needs.
+  */
+  const place =
+    address.area === "" ? findZone(address.zoneId)?.name : `${address.area}, ${address.lga}`;
+
+  const parts = [address.street, address.landmark, place].filter(
     (p): p is string => p !== undefined && p.trim() !== "",
   );
+
   return parts.join(" · ");
 }
 

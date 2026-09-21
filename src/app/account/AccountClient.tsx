@@ -159,6 +159,8 @@ function Stat({ label, value }: { label: string; value: string }) {
 // ---------------------------------------------------------------------------
 
 const EMPTY_DRAFT: AddressDraft = {
+  lga: "",
+  area: "",
   zoneId: "",
   street: "",
   landmark: "",
