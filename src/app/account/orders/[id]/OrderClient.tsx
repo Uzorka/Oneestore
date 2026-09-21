@@ -346,7 +346,7 @@ const KINDS: readonly ComplaintKind[] = [
  * door on someone eleven minutes late with bad fish costs more than the fish.
  */
 function ReportProblem({ order }: { order: Order }) {
-  const { complaints, raiseComplaint, ready } = useComplaints();
+  const { complaints, raiseComplaint, ready, load } = useComplaints();
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<ComplaintKind>("not_fresh");
   const [detail, setDetail] = useState("");
@@ -361,6 +361,11 @@ function ReportProblem({ order }: { order: Order }) {
     const timer = setInterval(() => tick((n) => n + 1), 30_000);
     return () => clearInterval(timer);
   }, [deliveredAt]);
+
+  // A complaint belongs to the order, not to the browser it was raised in.
+  useEffect(() => {
+    void load(order.id);
+  }, [load, order.id]);
 
   if (!ready || deliveredAt === null) return null;
 

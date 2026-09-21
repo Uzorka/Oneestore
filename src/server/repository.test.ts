@@ -16,6 +16,7 @@ import {
   complaintFor,
   creditWallet,
   ensureCustomer,
+  getOrder,
   listOrders,
   loadCatalog,
   orderEvents,
@@ -325,6 +326,32 @@ describe("the wallet", () => {
     expect(await walletBalance(pool, phone)).toBe(naira(5980));
   });
 
+  it("pays an order's shortfall to that order's customer, not to whoever is asking", async () => {
+    /*
+      The packing room is signed in as nobody. The first time this ran end to
+      end the credit went to an empty phantom account and the customer got
+      nothing, so the customer is now resolved from the order server-side.
+    */
+    const phone = "+2348030000010";
+    const order = { ...anOrder(), phone };
+    await inTransaction(pool, (tx) => placeOrder(tx, { order }));
+
+    await creditWallet(pool, {
+      amountKobo: naira(196),
+      reason: "short_weight",
+      orderCode: order.id,
+    });
+
+    expect(await walletBalance(pool, phone)).toBe(naira(196));
+  });
+
+  it("does nothing for an order that does not exist", async () => {
+    await creditWallet(pool, { amountKobo: naira(500), reason: "goodwill", orderCode: "ONE-NOPE00" });
+    // Nothing to assert beyond it not throwing and not inventing a customer.
+    const { rows } = await pool.query<{ n: number }>(`select count(*)::int as n from customers where phone = ''`);
+    expect(rows[0]?.n).toBe(0);
+  });
+
   it("ignores a credit of nothing", async () => {
     const phone = "+2348030000005";
     await creditWallet(pool, { phone, amountKobo: 0, reason: "goodwill", orderCode: null });
@@ -380,7 +407,7 @@ describe("complaints", () => {
     });
 
     const settled = await inTransaction(pool, (tx) =>
-      refundComplaint(tx, { orderCode: order.id, phone, amountKobo: naira(12_500), note: "Photo confirms it." }),
+      refundComplaint(tx, { orderCode: order.id, amountKobo: naira(12_500), note: "Photo confirms it." }),
     );
 
     expect(settled).toBe(true);
@@ -399,14 +426,82 @@ describe("complaints", () => {
     });
 
     await inTransaction(pool, (tx) =>
-      refundComplaint(tx, { orderCode: order.id, phone, amountKobo: naira(1000), note: "Done" }),
+      refundComplaint(tx, { orderCode: order.id, amountKobo: naira(1000), note: "Done" }),
     );
     const again = await inTransaction(pool, (tx) =>
-      refundComplaint(tx, { orderCode: order.id, phone, amountKobo: naira(1000), note: "Again" }),
+      refundComplaint(tx, { orderCode: order.id, amountKobo: naira(1000), note: "Again" }),
     );
 
     expect(again).toBe(false);
     expect(await walletBalance(pool, phone)).toBe(naira(1000));
+  });
+});
+
+describe("reading one back whole", () => {
+  it("returns the order the way the screens expect it", async () => {
+    const order = anOrder();
+    await inTransaction(pool, (tx) => placeOrder(tx, { order }));
+    await advanceOrder(pool, order.id, "sourcing", "Picked at Epe");
+
+    const back = await getOrder(pool, order.id);
+
+    expect(back?.id).toBe(order.id);
+    expect(back?.status).toBe("sourcing");
+    expect(back?.phone).toBe(PHONE);
+    expect(back?.lines).toHaveLength(1);
+    expect(back?.lines[0]?.productId).toBe("croaker");
+    expect(back?.lines[0]?.prepId).toBe("whole");
+    expect(back?.lines[0]?.weightG).toBe(2000);
+    expect(back?.totalKobo).toBe(order.totalKobo);
+    expect(back?.history.map((e) => e.status)).toEqual(["pending_payment", "sourcing"]);
+  });
+
+  it("brings back the address the rider needs, recipient and all", async () => {
+    const order = anOrder();
+    await inTransaction(pool, (tx) => placeOrder(tx, { order }));
+
+    const back = await getOrder(pool, order.id);
+
+    expect(back?.address.street).toBe(ADDRESS.street);
+    expect(back?.address.landmark).toBe(ADDRESS.landmark);
+    expect(back?.address.recipientName).toBe("Adaeze Okoro");
+  });
+
+  it("does not multiply lines by events", async () => {
+    // Joining lines and events in one query turns three lines and five events
+    // into fifteen rows, and every total from that is wrong arithmetically
+    // rather than obviously.
+    const croaker = catalog.get("croaker") as Product;
+    const prawns = catalog.get("tiger-prawns") as Product;
+
+    const order = anOrder([
+      { productId: "croaker", prepId: "whole", weightG: 2000, unitPricePerKgKoboSnapshot: croaker.pricePerKgKobo },
+      { productId: "tiger-prawns", prepId: "shell-on", weightG: 1000, unitPricePerKgKoboSnapshot: prawns.pricePerKgKobo },
+    ]);
+    await inTransaction(pool, (tx) => placeOrder(tx, { order }));
+
+    for (const step of ["sourcing", "quality_checked", "preparing"] as const) {
+      await advanceOrder(pool, order.id, step);
+    }
+
+    const back = await getOrder(pool, order.id);
+    expect(back?.lines).toHaveLength(2);
+    expect(back?.history).toHaveLength(4);
+    expect(back?.totalWeightG).toBe(3000);
+  });
+
+  it("carries the packed weights back, and only the ones recorded", async () => {
+    const order = anOrder();
+    await inTransaction(pool, (tx) => placeOrder(tx, { order }));
+
+    expect((await getOrder(pool, order.id))?.packed).toBeUndefined();
+
+    await recordPackedWeight(pool, order.id, "croaker", "whole", 1900);
+    expect((await getOrder(pool, order.id))?.packed).toEqual({ "croaker:whole": 1900 });
+  });
+
+  it("is null for an order that does not exist", async () => {
+    expect(await getOrder(pool, "ONE-NOPE00")).toBeNull();
   });
 });
 

@@ -318,6 +318,98 @@ export async function listOrders(tx: SqlExecutor, phone: string): Promise<readon
   }));
 }
 
+/**
+ * One order, whole: lines, events and the address it is going to.
+ *
+ * Three queries rather than one join. Joining lines and events together
+ * multiplies the rows — three lines and five events come back as fifteen —
+ * and every total computed from that is wrong in a way that looks arithmetical
+ * rather than structural.
+ */
+export async function getOrder(tx: SqlExecutor, code: string): Promise<Order | null> {
+  const { rows } = await tx.query<Record<string, unknown>>(
+    `select o.*, c.phone,
+            a.zone_id as addr_zone, a.street, a.landmark,
+            a.recipient_name, a.recipient_phone, a.instructions
+     from orders o
+     join customers c on c.id = o.customer_id
+     left join addresses a on a.id = o.address_id
+     where o.code = $1`,
+    [code],
+  );
+
+  const row = rows[0];
+  if (row === undefined) return null;
+
+  const lines = await tx.query<Record<string, unknown>>(
+    `select i.*, p.slug as product_slug,
+            coalesce(po.key, '') as prep_key,
+            coalesce(po.yield_bps, 10000) as yield_bps
+     from order_items i
+     join products p on p.id = i.product_id
+     left join prep_options po on po.id = i.prep_option_id
+     where i.order_id = $1
+     order by i.id`,
+    [row.id],
+  );
+
+  const events = await orderEvents(tx, code);
+
+  const goodsKobo = toKobo(row.goods_kobo);
+  const prepKobo = toKobo(row.prep_kobo);
+
+  const packed: Record<string, Grams> = {};
+  for (const line of lines.rows) {
+    if (line.actual_g !== null && line.actual_g !== undefined) {
+      packed[`${String(line.product_slug)}:${String(line.prep_key)}`] = Number(line.actual_g);
+    }
+  }
+
+  return {
+    id: code,
+    placedAt: new Date(String(row.placed_at)).getTime(),
+    status: String(row.status) as OrderStatus,
+    lines: lines.rows.map((line) => {
+      const weightG = Number(line.ordered_g);
+      return {
+        productId: String(line.product_slug),
+        productName: String(line.product_name),
+        prepId: String(line.prep_key),
+        prepName: String(line.prep_name ?? ""),
+        weightG,
+        preparedWeightG: Math.round((weightG * Number(line.yield_bps)) / 10000),
+        unitPricePerKgKobo: toKobo(line.unit_price_per_kg_kobo),
+        goodsKobo: toKobo(line.line_total_kobo),
+        prepKobo: 0,
+        totalKobo: toKobo(line.line_total_kobo),
+      };
+    }),
+    totalWeightG: lines.rows.reduce((sum, l) => sum + Number(l.ordered_g), 0),
+    subtotalKobo: goodsKobo + prepKobo,
+    discountBps: Number(row.discount_bps ?? 0),
+    discountKobo: toKobo(row.discount_kobo),
+    deliveryKobo: toKobo(row.delivery_kobo),
+    totalKobo: toKobo(row.total_kobo),
+    phone: String(row.phone),
+    address: {
+      id: String(row.address_id ?? ""),
+      zoneId: String(row.addr_zone ?? row.zone_id ?? ""),
+      street: String(row.street ?? ""),
+      landmark: String(row.landmark ?? ""),
+      recipientName: String(row.recipient_name ?? ""),
+      recipientPhone: String(row.recipient_phone ?? row.phone),
+      instructions: String(row.instructions ?? ""),
+      isDefault: false,
+    },
+    zoneId: String(row.zone_id ?? ""),
+    slotDate: row.delivery_date === null ? "" : String(row.delivery_date).slice(0, 10),
+    slotWindowLabel: String(row.delivery_window ?? ""),
+    settlement: "on_delivery",
+    history: events.map((e) => (e.note === "" ? { status: e.status, at: e.at } : e)),
+    ...(Object.keys(packed).length > 0 ? { packed } : {}),
+  };
+}
+
 export async function orderEvents(
   tx: SqlExecutor,
   code: string,
@@ -380,11 +472,30 @@ export async function walletBalance(tx: SqlExecutor, phone: string): Promise<Kob
  */
 export async function creditWallet(
   tx: SqlExecutor,
-  args: { phone: string; amountKobo: Kobo; reason: "short_weight" | "complaint_refund" | "goodwill"; orderCode: string | null },
+  args: { phone?: string; amountKobo: Kobo; reason: "short_weight" | "complaint_refund" | "goodwill"; orderCode: string | null },
 ): Promise<void> {
   if (args.amountKobo <= 0) return;
 
-  const customerId = await ensureCustomer(tx, args.phone);
+  /*
+    When there is an order, the money belongs to *its* customer — looked up
+    here rather than taken from the caller.
+
+    The packing room is not signed in as anybody. Crediting whoever happens to
+    be holding the device paid a short weight into an empty phantom account
+    and left the actual customer with nothing, which is exactly what happened
+    the first time this ran end to end.
+  */
+  const customerId =
+    args.orderCode === null
+      ? await ensureCustomer(tx, args.phone as string)
+      : (
+          await tx.query<{ customer_id: string }>(
+            `select customer_id from orders where code = $1`,
+            [args.orderCode],
+          )
+        ).rows[0]?.customer_id;
+
+  if (customerId === undefined) return;
 
   if (args.orderCode !== null) {
     await tx.query(
@@ -452,7 +563,7 @@ export async function complaintFor(tx: SqlExecutor, orderCode: string): Promise<
  */
 export async function refundComplaint(
   tx: SqlExecutor,
-  args: { orderCode: string; phone: string; amountKobo: Kobo; note: string },
+  args: { orderCode: string; amountKobo: Kobo; note: string },
 ): Promise<boolean> {
   const { rows } = await tx.query<{ id: string }>(
     `update complaints c set status = 'refunded', refunded_kobo = $2,
@@ -467,8 +578,8 @@ export async function refundComplaint(
 
   if (rows.length === 0) return false;
 
+  // No phone: the refund goes to the order's customer, whoever is settling it.
   await creditWallet(tx, {
-    phone: args.phone,
     amountKobo: args.amountKobo,
     reason: "complaint_refund",
     orderCode: args.orderCode,

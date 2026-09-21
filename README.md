@@ -328,9 +328,17 @@ the same types. Neither is a rewrite — each is one object to replace.
   against the migrations and **run** in the tests through the same `pg` driver
   that will talk to Supabase — see **The database layer** below.
 
-**Next:** pointing the screens at it. The repository is built and tested; the
-providers still read localStorage. That swap is mechanical now, and it needs a
-`DATABASE_URL` to be worth doing. Paystack after that.
+- M10: the screens read the database. With `DATABASE_URL` set, orders, the
+  wallet and complaints come from Postgres; without it the browser stand-in
+  still works, so a fresh clone runs with nothing configured. Proved by
+  running the app against a real database and driving two separate browsers:
+  a customer places an order on one, the shop sees it on the other, weighs it
+  short, delivers it — and the credit lands in the customer's wallet.
+
+**Next:** the catalog and the price board still live in the browser overlay,
+so a price published on one device is published only there. Same pattern,
+`loadCatalog` and `publishPrices` are already written and tested. Paystack
+after that.
 
 All catalog data is **placeholder**. Prices, stock, ratings, the ±8% band, zone
 fees, the 11 AM cut-off, the box tiers (3 kg → 5%, 5 kg → 10%) and the per-serving

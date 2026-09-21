@@ -3,6 +3,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
+import { fetchWallet, isDatabaseOn, payIntoWallet } from "@/app/actions/shop";
+import { useAccount } from "@/components/AccountProvider";
 import {
   WALLET_STORAGE_KEY,
   balanceKobo,
@@ -21,6 +23,8 @@ interface WalletContextValue {
   readonly entries: readonly WalletEntry[];
   readonly balanceKobo: Kobo;
   readonly ready: boolean;
+  /** True once the wallet is the customer's, not this browser's. */
+  readonly shared: boolean;
   readonly credit: (args: {
     amountKobo: Kobo;
     reason: Exclude<WalletReason, "spent">;
@@ -36,37 +40,66 @@ const WalletContext = createContext<WalletContextValue | null>(null);
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [entries, setEntries] = useState<readonly WalletEntry[]>([]);
   const [ready, setReady] = useState(false);
+  const [shared, setShared] = useState(false);
+  const account = useAccount();
 
-  useEffect(() => {
-    try {
-      setEntries(parseWallet(window.localStorage.getItem(WALLET_STORAGE_KEY)));
-    } catch {
-      // Blocked storage. An empty wallet is wrong but safe; throwing is not.
+  const phone = account.phone ?? "";
+
+  const reload = useCallback(async () => {
+    const on = await isDatabaseOn();
+    setShared(on);
+
+    if (!on) {
+      try {
+        setEntries(parseWallet(window.localStorage.getItem(WALLET_STORAGE_KEY)));
+      } catch {
+        // Blocked storage. An empty wallet is wrong but safe; throwing is not.
+      }
+      setReady(true);
+      return;
     }
+
+    setEntries((await fetchWallet(phone)).entries);
     setReady(true);
-  }, []);
+  }, [phone]);
 
   useEffect(() => {
-    if (!ready) return;
+    void reload();
+  }, [reload]);
+
+  useEffect(() => {
+    if (!ready || shared) return;
     try {
       window.localStorage.setItem(WALLET_STORAGE_KEY, serializeWallet(entries));
     } catch {
       // Full or blocked.
     }
-  }, [entries, ready]);
+  }, [entries, ready, shared]);
 
   const creditWallet = useCallback(
     (args: { amountKobo: Kobo; reason: Exclude<WalletReason, "spent">; orderId: string | null; note: string }) => {
       setEntries((prev) => credit(prev, { ...args, at: Date.now() }));
+
+      if (shared) {
+        void payIntoWallet({
+          phone,
+          amountKobo: args.amountKobo,
+          reason: args.reason,
+          orderCode: args.orderId,
+        }).then(() => reload());
+      }
     },
-    [],
+    [shared, phone, reload],
   );
 
   /**
    * Spend and report what was taken.
    *
    * The amount is computed from the ledger inside the state update so two
-   * quick taps cannot both read the same balance and spend it twice.
+   * quick taps cannot both read the same balance and spend it twice. On a
+   * shared wallet the spend is written as part of placing the order, not
+   * here — two writes for one decision is how a wallet is debited for an
+   * order that never saved.
    */
   const spendOn = useCallback((billKobo: Kobo, orderId: string) => {
     let taken = 0;
@@ -85,11 +118,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       entries,
       balanceKobo: balanceKobo(entries),
       ready,
+      shared,
       credit: creditWallet,
       spendOn,
       coverage,
     }),
-    [entries, ready, creditWallet, spendOn, coverage],
+    [entries, ready, shared, creditWallet, spendOn, coverage],
   );
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;

@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { use, useState } from "react";
+import { use, useEffect, useState } from "react";
 
 import { Artwork } from "@/components/Artwork";
 import { useCatalog } from "@/components/CatalogProvider";
+import { payIntoWallet } from "@/app/actions/shop";
 import { useComplaints } from "@/components/ComplaintsProvider";
 import { useOrders } from "@/components/OrdersProvider";
 import { useWallet } from "@/components/WalletProvider";
@@ -18,7 +19,6 @@ import {
   overrideReason,
   packingState,
   packingSummary,
-  recordPackedWeight,
   valueOfPackedWeight,
 } from "@/lib/packing";
 import type { Order } from "@/lib/orders";
@@ -46,12 +46,17 @@ import { Stat } from "../../AdminShell";
  */
 export function PackClient({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { byId, ready, replace, move } = useOrders();
+  const { byId, ready, setWeight, move } = useOrders();
   const { productMap } = useCatalog();
-  const { credit } = useWallet();
-  const { complaints, refundComplaint, declineComplaint } = useComplaints();
+  const { credit, shared: walletShared } = useWallet();
+  const { complaints, refundComplaint, declineComplaint, load } = useComplaints();
 
   const order = byId(id);
+
+  // The packing room sees complaints raised on any device, not just this one.
+  useEffect(() => {
+    void load(id);
+  }, [load, id]);
 
   if (!ready) return <p className="text-[13px] text-ink-muted">Reading the order…</p>;
 
@@ -144,7 +149,9 @@ export function PackClient({ params }: { params: Promise<{ id: string }> }) {
               state={state}
               order={order}
               product={productMap.get(state.line.productId)}
-              onWeigh={(actualG) => replace(recordPackedWeight(order, state.key, actualG))}
+              onWeigh={(actualG) =>
+                setWeight(order.id, state.line.productId, state.line.prepId, actualG)
+              }
             />
           ))}
         </section>
@@ -200,12 +207,26 @@ export function PackClient({ params }: { params: Promise<{ id: string }> }) {
                           twice.
                         */
                         if (status === "delivered" && summary.walletCreditKobo > 0) {
-                          credit({
-                            amountKobo: summary.walletCreditKobo,
-                            reason: "short_weight",
-                            orderId: order.id,
-                            note: `Packed under on ${order.id}`,
-                          });
+                          /*
+                            To the order's customer, not to this device. The
+                            packing room is signed in as nobody, so the local
+                            wallet here is nobody's — with a database the
+                            server resolves the customer from the order.
+                          */
+                          if (walletShared) {
+                            void payIntoWallet({
+                              amountKobo: summary.walletCreditKobo,
+                              reason: "short_weight",
+                              orderCode: order.id,
+                            });
+                          } else {
+                            credit({
+                              amountKobo: summary.walletCreditKobo,
+                              reason: "short_weight",
+                              orderId: order.id,
+                              note: `Packed under on ${order.id}`,
+                            });
+                          }
                         }
                         move(order.id, status);
                       }}

@@ -50,7 +50,7 @@ const EMPTY_DRAFT: AddressDraft = {
 export function CheckoutClient() {
   const { state, dispatch, ready: cartReady } = useCart();
   const { place } = useOrders();
-  const { balanceKobo: walletKobo, coverage, spendOn } = useWallet();
+  const { balanceKobo: walletKobo, coverage, spendOn, shared: walletShared } = useWallet();
   const router = useRouter();
   const account = useAccount();
   const { productMap: catalog } = useCatalog();
@@ -113,11 +113,16 @@ export function CheckoutClient() {
       at: Date.now(),
     });
 
-    place(order);
+    place(order, fromWalletKobo);
 
-    // Take the credit only once the order exists: a customer whose wallet was
-    // emptied by an order that then failed to save has lost money twice.
-    if (fromWalletKobo > 0) spendOn(fromWalletKobo, order.id);
+    /*
+      On a shared wallet the spend is written inside the same transaction as
+      the order, so it is not repeated here. On the local stand-in there is no
+      transaction to join, and the credit is taken only once the order exists:
+      a customer whose wallet was emptied by an order that then failed to save
+      has lost money twice.
+    */
+    if (!walletShared && fromWalletKobo > 0) spendOn(fromWalletKobo, order.id);
 
     dispatch({ type: "clear" });
     router.push(`/account/orders/${order.id}?placed=1`);
