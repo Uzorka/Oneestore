@@ -72,7 +72,7 @@ export function Artwork({
   let hash = 0;
   for (let i = 0; i < seed.length; i += 1) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
   const angle = 120 + (hash % 4) * 30;
-  const hue = (hash % 5) * 4 - 8;
+  const hue = (hash % 5) * 7 - 14;
 
   return (
     <div className={`relative overflow-hidden bg-sand ${className}`}>
@@ -119,7 +119,7 @@ export function Artwork({
         >
           {kind === "prawn" ? <Prawn ink={ground.ink} /> : null}
           {kind === "crab" ? <Crab ink={ground.ink} /> : null}
-          {kind === "meal" ? <Bowl ink={ground.ink} /> : null}
+          {kind === "meal" ? <Bowl ink={ground.ink} dish={seed} /> : null}
           {kind === "fish" || kind === "dried" ? (
             <Fish ink={ground.ink} dried={kind === "dried"} species={seed} />
           ) : null}
@@ -258,17 +258,71 @@ function Crab({ ink }: { ink: string }) {
   );
 }
 
-function Bowl({ ink }: { ink: string }) {
+/**
+ * Dishes differ too.
+ *
+ * Four identical cups in a row is the same failure the fish had before they
+ * were drawn per species: it reads as a placeholder nobody finished. The
+ * vessel is picked from the dish's own name, so okra gets a deep pot and
+ * pasta gets a plate.
+ */
+const VESSELS: Record<string, "pot" | "bowl" | "plate" | "pan"> = {
+  "seafood-okra": "pot",
+  "pepper-soup": "bowl",
+  "seafood-pasta": "plate",
+  "seafood-boil": "pan",
+};
+
+function Bowl({ ink, dish }: { ink: string; dish: string }) {
+  const vessel = VESSELS[dish] ?? "bowl";
+
   return (
     <g transform="translate(-38 -26)">
-      <path d="M10 32h60v6c0 12-10 21-23 21H33c-13 0-23-9-23-21v-6z" />
-      <path d="M70 36h6a7 7 0 0 1 0 14h-6" fill="none" />
+      {vessel === "pot" && (
+        <>
+          {/* Deep pot with lugs — what okra actually cooks in. */}
+          <path d="M14 26h52v22c0 8-6 14-14 14H28c-8 0-14-6-14-14V26z" />
+          <path d="M10 24h60" fill="none" strokeWidth="2.4" />
+          <path d="M8 32c-4 0-4 8 0 8M72 32c4 0 4 8 0 8" fill="none" />
+        </>
+      )}
+
+      {vessel === "bowl" && (
+        <>
+          {/* Wide shallow bowl, the way pepper soup is served. */}
+          <path d="M8 32h64c0 14-14 24-32 24S8 46 8 32z" />
+          <path d="M4 30h72" fill="none" strokeWidth="2.4" />
+          <path d="M40 56v6M30 62h20" fill="none" strokeOpacity="0.6" />
+        </>
+      )}
+
+      {vessel === "plate" && (
+        <>
+          {/* A plate, with something twirled on it. */}
+          <ellipse cx="40" cy="40" rx="34" ry="16" />
+          <ellipse cx="40" cy="39" rx="24" ry="10" fill="none" strokeOpacity="0.5" />
+          <g fill="none" strokeOpacity="0.6" strokeWidth="1.5">
+            <path d="M28 38c4-5 12-6 18-2s6 8 0 9-14-1-14-5" />
+          </g>
+        </>
+      )}
+
+      {vessel === "pan" && (
+        <>
+          {/* A wide pan with a handle: everything in, newspaper on the table. */}
+          <path d="M8 30h56v10c0 9-8 16-19 16H27c-11 0-19-7-19-16V30z" />
+          <path d="M64 34h12a3 3 0 0 1 0 8H64" fill="none" />
+          <path d="M4 28h64" fill="none" strokeWidth="2.4" />
+        </>
+      )}
+
       <g fill="none" strokeOpacity="0.5" strokeWidth="1.5">
-        <path d="M24 24c4-5-2-8 2-13M40 22c4-5-2-8 2-13M56 24c4-5-2-8 2-13" />
+        <path d="M24 20c4-5-2-8 2-13M40 18c4-5-2-8 2-13M56 20c4-5-2-8 2-13" />
       </g>
-      <path d="M22 40c6 3 12 3 18 0s12-3 18 0" fill="none" strokeOpacity="0.45" />
-      <circle cx="33" cy="48" r="2" fill={ink} stroke="none" fillOpacity="0.5" />
-      <circle cx="47" cy="50" r="2" fill={ink} stroke="none" fillOpacity="0.5" />
+
+      <circle cx="31" cy="42" r="2.2" fill={ink} stroke="none" fillOpacity="0.45" />
+      <circle cx="46" cy="45" r="2.2" fill={ink} stroke="none" fillOpacity="0.45" />
+      <circle cx="39" cy="38" r="1.8" fill={ink} stroke="none" fillOpacity="0.35" />
     </g>
   );
 }

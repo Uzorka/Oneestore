@@ -62,7 +62,13 @@ export default function ShopPage() {
           if (inCategory.length === 0) return null;
 
           return (
-            <section key={category.slug} className="flex flex-col gap-3">
+            <section
+              key={category.slug}
+              id={category.slug}
+              // Scroll margin so the fixed header does not sit on the heading
+              // when the home page links straight to a shelf.
+              className="flex scroll-mt-28 flex-col gap-3 md:scroll-mt-32"
+            >
               <h3 className="text-[15px] font-bold">{category.name}</h3>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-5 lg:grid-cols-4 xl:grid-cols-5">
                 {inCategory.map((product) => (

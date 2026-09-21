@@ -6,7 +6,12 @@ import { HeroVideo } from "@/components/HeroVideo";
 import { ProductCard } from "@/components/ProductCard";
 import { TopBar } from "@/components/TopBar";
 import { ButtonLink } from "@/components/ui/Button";
-import { products } from "@/lib/seed";
+import { Artwork } from "@/components/Artwork";
+import { ZONES } from "@/lib/delivery";
+import { LGAS } from "@/lib/lagos";
+import { formatNaira } from "@/lib/money";
+import { mealLines, priceBasket } from "@/lib/pricing";
+import { categories, mealPhoto, meals, productMap, products } from "@/lib/seed";
 
 const PROMISE = [
   {
@@ -23,10 +28,56 @@ const PROMISE = [
   },
 ] as const;
 
+const STEPS = [
+  {
+    title: "Pick the weight",
+    body: "Everything is sold by the kilogram. Take 800 g or take four — you are not buying a pack someone else decided on.",
+  },
+  {
+    title: "Say how you want it",
+    body: "Whole, cleaned, filleted, steak-cut. Filleting loses about half the weight and we tell you before you choose, not after.",
+  },
+  {
+    title: "It arrives on ice",
+    body: "Weighed on camera before it leaves. You pay for the weight that reaches your door, to the gram.",
+  },
+] as const;
+
 export default function HomePage() {
   // Five, because the grid runs to five columns on a wide screen and a row
   // one short of full reads as something failing to load.
   const today = products.filter((p) => p.availability === "today").slice(0, 5);
+
+  const catalog = productMap();
+
+  const shelves = categories.map((category) => ({
+    slug: category.slug,
+    name: category.name,
+    count: products.filter((p) => p.categorySlug === category.slug && p.availability !== "hidden").length,
+    kind:
+      category.slug === "prawns-shrimp"
+        ? ("prawn" as const)
+        : category.slug === "shellfish"
+          ? ("crab" as const)
+          : category.slug === "smoked-dried"
+            ? ("dried" as const)
+            : ("fish" as const),
+  }));
+
+  // The "from" price is the required ingredients at the default serving count
+  // — the honest floor, the same figure the meals page quotes.
+  const dishes = meals.map((meal) => ({
+    meal,
+    fromKobo: priceBasket(
+      mealLines({
+        meal,
+        serves: meal.defaultServes,
+        productsById: catalog,
+        excluded: new Set(meal.ingredients.filter((i) => i.optional).map((i) => i.productId)),
+      }),
+      catalog,
+    ).payableKobo,
+  }));
 
   return (
     <main>
@@ -131,6 +182,39 @@ export default function HomePage() {
           </Link>
         </div>
 
+        {/*
+          Straight to a shelf. Somebody who came for prawns should not have to
+          read the whole page to find out there are prawns.
+        */}
+        <section className="flex flex-col gap-3">
+          <h2 className="font-display text-[19px] font-semibold md:text-[28px]">
+            What are you after?
+          </h2>
+
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-5">
+            {shelves.map((shelf) => (
+              <Link
+                key={shelf.slug}
+                href={`/shop#${shelf.slug}`}
+                className="flex flex-col gap-2.5 rounded-card border border-line bg-paper p-2.5 transition-transform duration-[var(--m-fast)] hover:-translate-y-0.5"
+              >
+                <Artwork
+                  kind={shelf.kind}
+                  alt={shelf.name}
+                  seed={shelf.slug}
+                  className="h-24 w-full rounded-xl md:h-28"
+                />
+                <span className="flex flex-col gap-0.5 px-0.5 pb-0.5">
+                  <span className="text-[13.5px] font-bold">{shelf.name}</span>
+                  <span className="text-[11px] text-ink-muted">
+                    {shelf.count} {shelf.count === 1 ? "kind" : "kinds"} today
+                  </span>
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+
         <section className="flex flex-col gap-4">
           <div className="flex items-end gap-4">
             <div className="flex flex-1 flex-col">
@@ -154,6 +238,103 @@ export default function HomePage() {
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
+        </section>
+
+        {/*
+          The meals, with real quantities behind them rather than a link that
+          promises something vague.
+        */}
+        <section className="flex flex-col gap-4">
+          <div className="flex items-end gap-4">
+            <div className="flex flex-1 flex-col">
+              <h2 className="font-display text-[19px] font-semibold md:text-[28px]">
+                Tonight&rsquo;s dinner, worked out
+              </h2>
+              <span className="mt-0.5 text-[11.5px] text-ink-muted md:text-[13px]">
+                Pick the dish; we work out what to buy and how much
+              </span>
+            </div>
+            <Link
+              href="/meals"
+              className="flex min-h-11 items-center px-1 text-[13px] font-bold text-lagoon md:text-sm"
+            >
+              All meals
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-5">
+            {dishes.map(({ meal, fromKobo }) => (
+              <Link
+                key={meal.slug}
+                href={`/meals/${meal.slug}`}
+                className="flex flex-col gap-2.5 rounded-card border border-line bg-paper p-2.5 transition-transform duration-[var(--m-fast)] hover:-translate-y-0.5"
+              >
+                <Artwork
+                  kind="meal"
+                  src={mealPhoto(meal)}
+                  alt={meal.name}
+                  seed={meal.slug}
+                  className="h-28 w-full rounded-xl md:h-36"
+                />
+                <span className="flex flex-col gap-0.5 px-0.5 pb-0.5">
+                  <span className="truncate text-[13.5px] font-bold">{meal.name}</span>
+                  <span className="text-[11px] text-ink-muted">
+                    Serves {meal.defaultServes} · from {formatNaira(fromKobo)}
+                  </span>
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        <section className="flex flex-col gap-5 rounded-card bg-abyss p-5 md:p-8">
+          <h2 className="font-display text-[19px] font-semibold text-white md:text-[26px]">
+            How it works
+          </h2>
+
+          <ol className="grid gap-5 md:grid-cols-3 md:gap-8">
+            {STEPS.map((step, i) => (
+              <li key={step.title} className="flex flex-col gap-2">
+                <span className="flex size-8 items-center justify-center rounded-full border border-white/20 bg-white/10 font-display text-[15px] font-semibold text-[#7FD3C4]">
+                  {i + 1}
+                </span>
+                <span className="font-display text-[16px] font-semibold text-white md:text-[19px]">
+                  {step.title}
+                </span>
+                <span className="text-[12.5px] leading-relaxed text-[#A8C4C0]">{step.body}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <h2 className="font-display text-[19px] font-semibold md:text-[28px]">
+              Where we deliver
+            </h2>
+            <span className="text-[11.5px] text-ink-muted md:text-[13px]">
+              All {LGAS.length} Lagos local governments. Free over {formatNaira(10_000_000)}.
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-5">
+            {ZONES.map((zone) => (
+              <div key={zone.id} className="flex flex-col gap-1.5 rounded-card border border-line bg-paper p-3.5">
+                <span className="text-[13.5px] font-bold">{zone.name}</span>
+                <span className="text-[11px] leading-snug text-ink-muted">
+                  {zone.areas.join(", ")}
+                </span>
+                <span className="mt-auto pt-1 font-display text-[19px] font-semibold">
+                  {formatNaira(zone.feeKobo)}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <p className="text-[11.5px] leading-snug text-ink-muted">
+            Order before 11 AM for the same day. Mondays are closed — the boats do not go out on
+            Sundays, so there is nothing landed to deliver.
+          </p>
         </section>
 
         <section
