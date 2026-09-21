@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { use } from "react";
+import { use, useEffect, useState } from "react";
 
 import { Artwork } from "@/components/Artwork";
 import { useCatalog } from "@/components/CatalogProvider";
+import { useComplaints } from "@/components/ComplaintsProvider";
 import { useOrders } from "@/components/OrdersProvider";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -20,6 +21,15 @@ import {
   statusLabel,
 } from "@/lib/orders";
 import type { Order } from "@/lib/orders";
+import {
+  formatTimeLeft,
+  forOrder,
+  isWithinWindow,
+  kindLabel,
+  statusLabel as complaintStatusLabel,
+  timeLeftMs,
+} from "@/lib/complaints";
+import type { ComplaintKind } from "@/lib/complaints";
 import { artKindFor, productPhoto } from "@/lib/seed";
 import type { OrderStatus } from "@/lib/types";
 
@@ -149,6 +159,8 @@ export function OrderClient({ params }: { params: Promise<{ id: string }> }) {
               })}
             </div>
           </section>
+
+          <ReportProblem order={order} />
         </div>
 
         <aside className="flex flex-col gap-4 lg:sticky lg:top-[112px] lg:w-[340px] lg:shrink-0">
@@ -306,5 +318,158 @@ function Row({ label, value }: { label: string; value: string }) {
       <span className="flex-1 text-[13px] text-ink-soft">{label}</span>
       <span className="text-[13.5px] font-semibold">{value}</span>
     </div>
+  );
+}
+
+const KINDS: readonly ComplaintKind[] = [
+  "not_fresh",
+  "wrong_weight",
+  "wrong_item",
+  "missing_item",
+  "late",
+  "other",
+];
+
+/**
+ * "Not right? Tell us within 2 hours."
+ *
+ * The home page has promised this since the first screen. The countdown is
+ * shown because a promise with a deadline the customer cannot see is a trap,
+ * and the form still opens after the window closes — it just says plainly
+ * that it goes to a person instead of being settled on the spot. Shutting the
+ * door on someone eleven minutes late with bad fish costs more than the fish.
+ */
+function ReportProblem({ order }: { order: Order }) {
+  const { complaints, raiseComplaint, ready } = useComplaints();
+  const [open, setOpen] = useState(false);
+  const [kind, setKind] = useState<ComplaintKind>("not_fresh");
+  const [detail, setDetail] = useState("");
+  const [, tick] = useState(0);
+
+  const deliveredAt = [...order.history].reverse().find((e) => e.status === "delivered")?.at ?? null;
+
+  // The countdown is derived at render and the interval only forces a
+  // repaint, so it cannot drift or reset itself.
+  useEffect(() => {
+    if (deliveredAt === null) return;
+    const timer = setInterval(() => tick((n) => n + 1), 30_000);
+    return () => clearInterval(timer);
+  }, [deliveredAt]);
+
+  if (!ready || deliveredAt === null) return null;
+
+  const existing = forOrder(complaints, order.id);
+
+  if (existing !== undefined) {
+    return (
+      <section className="flex flex-col gap-2 rounded-card border border-line bg-paper p-4">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h2 className="text-[15px] font-bold">You told us about this order</h2>
+          <span className="rounded-full bg-tint-teal px-2 py-0.5 text-[10.5px] font-bold text-lagoon">
+            {complaintStatusLabel(existing.status)}
+          </span>
+        </div>
+
+        <p className="text-[12.5px] text-ink-soft">
+          <strong className="font-bold">{kindLabel(existing.kind)}.</strong> {existing.detail}
+        </p>
+
+        {existing.status === "refunded" && (
+          <p className="rounded-xl bg-tint-mint px-3 py-2.5 text-[11.5px] leading-snug text-reef">
+            {formatNaira(existing.refundedKobo)} went back to your wallet. {existing.resolutionNote}
+          </p>
+        )}
+
+        {existing.status === "declined" && (
+          <p className="rounded-xl bg-sand px-3 py-2.5 text-[11.5px] leading-snug text-ink-soft">
+            {existing.resolutionNote}
+          </p>
+        )}
+
+        {(existing.status === "open" || existing.status === "needs_review") && (
+          <p className="text-[11.5px] leading-snug text-ink-muted">
+            {existing.withinWindow
+              ? "We are on it. You will get a call on the number you verified."
+              : "This came in after the 2-hour window, so someone is looking at it by hand."}
+          </p>
+        )}
+      </section>
+    );
+  }
+
+  const left = timeLeftMs(deliveredAt, Date.now());
+  const inWindow = isWithinWindow(deliveredAt, Date.now());
+
+  if (!open) {
+    return (
+      <section className="flex flex-col gap-2 rounded-card border border-line bg-paper p-4">
+        <h2 className="text-[15px] font-bold">Something not right?</h2>
+        <p className="text-[12.5px] leading-relaxed text-ink-soft">
+          {inWindow
+            ? `Tell us within 2 hours of delivery and we refund it. ${formatTimeLeft(left)} left.`
+            : "The 2-hour window has closed, but you can still tell us — it goes to a person rather than being settled on the spot."}
+        </p>
+        <Button variant="secondary" onClick={() => setOpen(true)} className="sm:w-fit">
+          Report a problem
+        </Button>
+      </section>
+    );
+  }
+
+  return (
+    <section className="animate-rise flex flex-col gap-3 rounded-card border border-line bg-paper p-4">
+      <h2 className="text-[15px] font-bold">What went wrong?</h2>
+
+      <div role="group" aria-label="What went wrong" className="flex flex-wrap gap-2">
+        {KINDS.map((k) => (
+          <button
+            key={k}
+            type="button"
+            aria-pressed={kind === k}
+            onClick={() => setKind(k)}
+            className={`flex min-h-11 items-center rounded-control px-3.5 text-[12.5px] font-semibold transition-colors duration-[var(--m-fast)] ${
+              kind === k
+                ? "border-[1.5px] border-lagoon bg-tint-mint text-lagoon"
+                : "border border-line bg-paper text-ink-soft"
+            }`}
+          >
+            {kindLabel(k)}
+          </button>
+        ))}
+      </div>
+
+      <label className="flex flex-col gap-1.5">
+        <span className="text-[11.5px] font-semibold text-ink-muted">
+          Tell us what you saw
+        </span>
+        <textarea
+          value={detail}
+          onChange={(e) => setDetail(e.target.value)}
+          rows={3}
+          placeholder="The snapper smells off and the eyes are cloudy."
+          className="rounded-control border border-line bg-white px-3.5 py-2.5 text-[13.5px] outline-none"
+        />
+      </label>
+
+      <p className="text-[11px] leading-snug text-ink-muted">
+        Photographs are how these get settled fastest. Uploading them is not built yet — send them on
+        the number you verified and we will match them to {order.id}.
+      </p>
+
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Button
+          disabled={detail.trim().length < 4}
+          onClick={() => {
+            raiseComplaint({ orderId: order.id, deliveredAt, kind, detail });
+            setOpen(false);
+          }}
+        >
+          Send it
+        </Button>
+        <Button variant="tertiary" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
+      </div>
+    </section>
   );
 }

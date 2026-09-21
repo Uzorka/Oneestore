@@ -8,6 +8,7 @@ import { useAccount } from "@/components/AccountProvider";
 import { useCart } from "@/components/CartProvider";
 import { useCatalog } from "@/components/CatalogProvider";
 import { useOrders } from "@/components/OrdersProvider";
+import { useWallet } from "@/components/WalletProvider";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatAddress, validateAddress } from "@/lib/address";
@@ -49,6 +50,7 @@ const EMPTY_DRAFT: AddressDraft = {
 export function CheckoutClient() {
   const { state, dispatch, ready: cartReady } = useCart();
   const { place } = useOrders();
+  const { balanceKobo: walletKobo, coverage, spendOn } = useWallet();
   const router = useRouter();
   const account = useAccount();
   const { productMap: catalog } = useCatalog();
@@ -77,7 +79,13 @@ export function CheckoutClient() {
   const totals = priceCart(state, catalog);
   const zone = draft.zoneId === "" ? undefined : findZone(draft.zoneId);
   const deliveryKobo = zone === undefined ? 0 : deliveryFeeKobo(zone, totals.payableKobo);
-  const totalKobo = totals.payableKobo + deliveryKobo;
+  const billKobo = totals.payableKobo + deliveryKobo;
+
+  // Wallet credit comes off automatically. It is the customer's money already
+  // — making them opt in to being given back what they are owed is a way of
+  // hoping they forget.
+  const fromWalletKobo = coverage(billKobo);
+  const totalKobo = billKobo - fromWalletKobo;
 
   /**
    * Turn the basket into an order.
@@ -103,6 +111,11 @@ export function CheckoutClient() {
     });
 
     place(order);
+
+    // Take the credit only once the order exists: a customer whose wallet was
+    // emptied by an order that then failed to save has lost money twice.
+    if (fromWalletKobo > 0) spendOn(fromWalletKobo, order.id);
+
     dispatch({ type: "clear" });
     router.push(`/account/orders/${order.id}?placed=1`);
   }
@@ -591,7 +604,24 @@ export function CheckoutClient() {
               />
             )}
             <SummaryRow label="Delivery" value={deliveryKobo === 0 ? "Free" : formatNaira(deliveryKobo)} />
+            {fromWalletKobo > 0 && (
+              <SummaryRow label="From your wallet" value={`−${formatNaira(fromWalletKobo)}`} />
+            )}
           </div>
+
+          {fromWalletKobo > 0 && (
+            <div className="flex gap-2.5 rounded-xl bg-tint-mint px-3 py-2.5">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1C6B4A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-px shrink-0">
+                <path d="M3 8.5h15a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h11" />
+                <circle cx="16.5" cy="13.5" r="1.2" />
+              </svg>
+              <span className="text-[11.5px] leading-snug text-reef">
+                <strong className="font-bold">{formatNaira(fromWalletKobo)} of wallet credit</strong>{" "}
+                comes off this order.
+                {walletKobo > fromWalletKobo && ` ${formatNaira(walletKobo - fromWalletKobo)} stays in your wallet.`}
+              </span>
+            </div>
+          )}
 
           <div className="flex items-baseline gap-2 pt-1">
             <span className="flex-1 text-sm font-bold">To pay on delivery</span>

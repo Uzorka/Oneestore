@@ -3,12 +3,14 @@
 import Link from "next/link";
 
 import { useCatalog } from "@/components/CatalogProvider";
+import { useComplaints } from "@/components/ComplaintsProvider";
 import { useOrders } from "@/components/OrdersProvider";
 import { formatNaira, formatWeight } from "@/lib/money";
 import { changeCount } from "@/lib/catalog";
 import { isBeforeCutoff, timeToCutoff } from "@/lib/delivery";
 import { packingSummary } from "@/lib/packing";
 import { statusLabel } from "@/lib/orders";
+import { isOpen, kindLabel } from "@/lib/complaints";
 
 import { Stat } from "./AdminShell";
 
@@ -22,8 +24,9 @@ import { Stat } from "./AdminShell";
 export function TodayClient() {
   const { orders, ready: ordersReady } = useOrders();
   const { draft, state, ready: catalogReady } = useCatalog();
+  const { complaints, ready: complaintsReady } = useComplaints();
 
-  if (!ordersReady || !catalogReady) {
+  if (!ordersReady || !catalogReady || !complaintsReady) {
     return <p className="text-[13px] text-ink-muted">Opening up…</p>;
   }
 
@@ -45,7 +48,18 @@ export function TodayClient() {
     .filter((o) => o.status === "delivered")
     .reduce((sum, o) => sum + packingSummary(o).totalKobo, 0);
 
+  const openComplaints = complaints.filter(isOpen);
+
   const alerts = [
+    openComplaints.length > 0 && {
+      tone: "critical" as const,
+      title: `${openComplaints.length} unanswered ${openComplaints.length === 1 ? "complaint" : "complaints"}`,
+      body: openComplaints
+        .map((c) => `${c.orderId}: ${kindLabel(c.kind).toLowerCase()}`)
+        .join(" · "),
+      cta: openComplaints.length === 1 ? "Open it" : "Open the queue",
+      href: openComplaints.length === 1 ? `/admin/orders/${openComplaints[0]?.orderId}` : "/admin/orders",
+    },
     needingOverride.length > 0 && {
       tone: "critical" as const,
       title: `${needingOverride.length} ${needingOverride.length === 1 ? "order is" : "orders are"} outside the ±8% band`,
@@ -85,7 +99,7 @@ export function TodayClient() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
         <Stat
           label="Same-day cut-off"
           value={left === null ? "Passed" : `${left.hours}h ${left.minutes}m`}
@@ -94,6 +108,12 @@ export function TodayClient() {
         />
         <Stat label="Open orders" value={String(open.length)} note="not yet delivered" />
         <Stat label="Stock on the board" value={formatWeight(live.reduce((s, p) => s + p.stockG, 0))} note={`${live.length} kinds listed`} />
+        <Stat
+          label="Complaints"
+          value={String(openComplaints.length)}
+          note={openComplaints.length === 0 ? "none waiting" : "waiting on an answer"}
+          tone={openComplaints.length > 0 ? "warn" : "good"}
+        />
         <Stat label="Delivered" value={formatNaira(takings)} note="collected on delivery" tone="good" />
       </div>
 

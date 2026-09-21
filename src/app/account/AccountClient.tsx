@@ -29,6 +29,7 @@ const SECTIONS = [
   { href: "/account", label: "Your details" },
   { href: "/account/addresses", label: "Addresses" },
   { href: "/account/orders", label: "Orders" },
+  { href: "/account/wallet", label: "Wallet" },
 ] as const;
 
 export function AccountNav() {
@@ -137,7 +138,7 @@ export function AccountDetails() {
           <Stat label="Wallet" value="₦0" />
         </dl>
         <p className="text-[11.5px] leading-relaxed text-ink-muted">
-          Orders and wallet credit start counting once payment is connected.
+          Orders are placed unpaid and settled with the rider. Wallet credit comes back when an order is packed under what you asked for.
         </p>
       </section>
     </div>

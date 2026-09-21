@@ -5,6 +5,8 @@ import { AccountProvider } from "@/components/AccountProvider";
 import { BottomNav } from "@/components/BottomNav";
 import { CartProvider } from "@/components/CartProvider";
 import { CatalogProvider } from "@/components/CatalogProvider";
+import { ComplaintsProvider } from "@/components/ComplaintsProvider";
+import { WalletProvider } from "@/components/WalletProvider";
 import { OrdersProvider } from "@/components/OrdersProvider";
 import { ToastProvider } from "@/components/Toast";
 
@@ -50,6 +52,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <CatalogProvider>
           <AccountProvider>
+            <WalletProvider>
+            <ComplaintsProvider>
             <OrdersProvider>
               <CartProvider>
                 <ToastProvider>
@@ -58,6 +62,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </ToastProvider>
               </CartProvider>
             </OrdersProvider>
+            </ComplaintsProvider>
+            </WalletProvider>
           </AccountProvider>
         </CatalogProvider>
       </body>

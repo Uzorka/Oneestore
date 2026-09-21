@@ -5,7 +5,9 @@ import { use, useState } from "react";
 
 import { Artwork } from "@/components/Artwork";
 import { useCatalog } from "@/components/CatalogProvider";
+import { useComplaints } from "@/components/ComplaintsProvider";
 import { useOrders } from "@/components/OrdersProvider";
+import { useWallet } from "@/components/WalletProvider";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatAddress } from "@/lib/address";
@@ -21,6 +23,7 @@ import {
 } from "@/lib/packing";
 import type { Order } from "@/lib/orders";
 import type { PackedLineState } from "@/lib/packing";
+import { forOrder, kindLabel, statusLabel as complaintStatusLabel } from "@/lib/complaints";
 import { artKindFor, productPhoto } from "@/lib/seed";
 
 import { Stat } from "../../AdminShell";
@@ -45,6 +48,8 @@ export function PackClient({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { byId, ready, replace, move } = useOrders();
   const { productMap } = useCatalog();
+  const { credit } = useWallet();
+  const { complaints, refundComplaint, declineComplaint } = useComplaints();
 
   const order = byId(id);
 
@@ -104,6 +109,31 @@ export function PackClient({ params }: { params: Promise<{ id: string }> }) {
         </div>
       )}
 
+      <ComplaintPanel
+        orderId={order.id}
+        complaint={forOrder(complaints, order.id)}
+        maxRefundKobo={summary.totalKobo}
+        onRefund={(amountKobo, note) => {
+          const complaint = forOrder(complaints, order.id);
+          if (complaint === undefined) return;
+
+          // The refund lands in the wallet, which is the only place the
+          // customer can actually see it. Recording it on the complaint
+          // without paying it would be a note saying we paid.
+          refundComplaint(complaint.id, amountKobo, note);
+          credit({
+            amountKobo,
+            reason: "complaint_refund",
+            orderId: order.id,
+            note: `Refund on ${order.id}`,
+          });
+        }}
+        onDecline={(note) => {
+          const complaint = forOrder(complaints, order.id);
+          if (complaint !== undefined) declineComplaint(complaint.id, note);
+        }}
+      />
+
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-8">
         <section className="flex min-w-0 flex-1 flex-col gap-3">
           <h2 className="text-[15px] font-bold">On the scale</h2>
@@ -160,7 +190,25 @@ export function PackClient({ params }: { params: Promise<{ id: string }> }) {
                       variant="secondary"
                       size="sm"
                       disabled={blocked}
-                      onClick={() => move(order.id, status)}
+                      onClick={() => {
+                        /*
+                          Delivering is when the money settles. Anything we
+                          packed under goes back to the customer here — the
+                          promise made on the basket and the order page. The
+                          credit is keyed to the order, so correcting a weight
+                          and delivering again replaces it rather than paying
+                          twice.
+                        */
+                        if (status === "delivered" && summary.walletCreditKobo > 0) {
+                          credit({
+                            amountKobo: summary.walletCreditKobo,
+                            reason: "short_weight",
+                            orderId: order.id,
+                            note: `Packed under on ${order.id}`,
+                          });
+                        }
+                        move(order.id, status);
+                      }}
                     >
                       {statusLabel(status)}
                     </Button>
@@ -313,5 +361,122 @@ function Row({ label, value }: { label: string; value: string }) {
       <span className="flex-1 text-[13px] text-ink-soft">{label}</span>
       <span className="text-[13.5px] font-semibold">{value}</span>
     </div>
+  );
+}
+
+/**
+ * A complaint against this order.
+ *
+ * Refunding pays the wallet and records the complaint in one action, because
+ * doing only the second is a note claiming we paid. Declining demands a
+ * reason: "declined" with nothing after it is how a complaint becomes a
+ * chargeback, and the customer reads whatever is typed here.
+ */
+function ComplaintPanel({
+  orderId,
+  complaint,
+  maxRefundKobo,
+  onRefund,
+  onDecline,
+}: {
+  orderId: string;
+  complaint: ReturnType<typeof forOrder>;
+  maxRefundKobo: number;
+  onRefund: (amountKobo: number, note: string) => void;
+  onDecline: (note: string) => void;
+}) {
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+
+  if (complaint === undefined) return null;
+
+  const settled = complaint.status === "refunded" || complaint.status === "declined";
+  const typed = Number.parseFloat(amount);
+  const refundKobo = Number.isFinite(typed) ? Math.round(typed * 100) : 0;
+
+  return (
+    <section
+      className={`flex flex-col gap-3 rounded-card border-[1.5px] p-4 ${
+        settled ? "border-line bg-paper" : "border-clay bg-tint-clay"
+      }`}
+    >
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h2 className="text-[14px] font-bold">
+          {kindLabel(complaint.kind)} — {orderId}
+        </h2>
+        <span className="rounded-full bg-paper px-2 py-0.5 text-[10.5px] font-bold">
+          {complaintStatusLabel(complaint.status)}
+        </span>
+        {!complaint.withinWindow && (
+          <span className="text-[11px] font-semibold text-ink-muted">
+            came in after the 2-hour window
+          </span>
+        )}
+      </div>
+
+      <p className="text-[12.5px] leading-relaxed">{complaint.detail}</p>
+
+      {settled ? (
+        <p className="text-[11.5px] leading-snug text-ink-muted">
+          {complaint.status === "refunded"
+            ? `${formatNaira(complaint.refundedKobo)} paid to the wallet. ${complaint.resolutionNote}`
+            : complaint.resolutionNote}
+        </p>
+      ) : (
+        <>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <label className="flex flex-1 flex-col gap-1">
+              <span className="text-[10.5px] font-semibold tracking-[0.03em] text-ink-muted uppercase">
+                Refund (₦)
+              </span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder={(maxRefundKobo / 100).toFixed(0)}
+                className="h-12 rounded-control border border-line bg-white px-3 text-[15px] font-bold tabular-nums outline-none"
+              />
+            </label>
+
+            <label className="flex flex-[2] flex-col gap-1">
+              <span className="text-[10.5px] font-semibold tracking-[0.03em] text-ink-muted uppercase">
+                What you are telling them
+              </span>
+              <input
+                type="text"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Photo shows it clearly. Refunded in full."
+                className="h-12 rounded-control border border-line bg-white px-3 text-[13.5px] outline-none"
+              />
+            </label>
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              size="sm"
+              disabled={refundKobo <= 0 || note.trim() === ""}
+              onClick={() => onRefund(Math.min(refundKobo, maxRefundKobo), note.trim())}
+            >
+              Refund to wallet
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={note.trim() === ""}
+              onClick={() => onDecline(note.trim())}
+            >
+              Decline, with this reason
+            </Button>
+          </div>
+
+          <span className="text-[11px] leading-snug text-ink-muted">
+            A refund is paid into the customer&rsquo;s wallet immediately. Declining needs a reason —
+            they read it.
+          </span>
+        </>
+      )}
+    </section>
   );
 }

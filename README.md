@@ -70,6 +70,11 @@ that moves every morning:
 | An order is a snapshot; the catalog cannot rewrite it later | `createOrder` |
 | An order cannot skip a stage, or move backwards | `ORDER_FLOW`, `advance` |
 | An order already with the rider cannot be cancelled by a button | `ORDER_FLOW` |
+| The wallet is a ledger with reasons, never a bare balance | `wallet.ts` |
+| A wallet cannot go negative, or pay the same shortfall twice | `spend`, `credit` |
+| Credit never expires | no expiry exists to be called |
+| A late complaint goes to a person; the door does not shut | `raise` |
+| A complaint cannot be declined without a reason | `decline` |
 | The volume discount belongs to the basket's weight, not to the screen that filled it | `priceBasket`, `volumeDiscount` |
 | A discount is authorised once and never clawed back by a light pack | `reconcileLine`'s `discountBps` |
 | Totals never owe kobo | the discount floors to whole naira |
@@ -98,7 +103,8 @@ src/
     box/                  Build Your Box — live tier progress (client)
     meals/                Shop by Meal, and a builder per dish (client)
     basket/               the basket, priced by the engine
-    account/orders/       order history, and one order with its tracker
+    account/orders/       order history, one order, and reporting a problem
+    account/wallet/       the ledger, and why each movement happened
     admin/                operations — today, the board, the packing queue
     checkout/             five steps; contact, delivery and schedule are live
     orders/               honest empty state until orders exist
@@ -123,6 +129,8 @@ src/
     delivery.ts           zones, fees, cut-off, slots
     orders.ts             order snapshot + the status machine
     packing.ts            scale readings -> wallet credit, absorb, override
+    wallet.ts             the credit ledger — append-only, never negative
+    complaints.ts         the 2-hour window and how one is settled
     catalog.ts            the morning board: draft, publish, overlay
     seed.ts               placeholder catalog
 supabase/migrations/      schema with RLS
@@ -211,6 +219,25 @@ the same types. Neither is a rewrite — each is one object to replace.
   Prices stage into a draft and go live in one act. A morning's pricing is a
   single piece of judgement, and you do not want half of it on the storefront
   while someone is still deciding about the prawns.
+
+- M6: making good. Two promises the screens had been making since the first
+  milestone finally work.
+
+  **The wallet.** Packing an order under what was ordered credits the
+  difference on delivery, and it comes off the next order automatically —
+  opting in to being given back what you are owed is a way of hoping the
+  customer forgets. It is a ledger rather than a balance, because the first
+  question anyone asks about money that appeared without them paying it in is
+  *where did this come from?* Credits are idempotent per order, so correcting
+  a weight and delivering again does not pay twice.
+
+  **Complaints.** "Not right? Tell us within 2 hours" now has somewhere to be
+  said, with the countdown visible — a deadline the customer cannot see is a
+  trap. Past the window the form still opens; it goes to a person instead of
+  being settled on the spot, because turning away someone eleven minutes late
+  with bad fish costs more than the fish. Refunding pays the wallet and
+  records the complaint in one action, and declining demands a reason the
+  customer reads.
 
 **Next:** the table behind all of it. Orders and the price board live in one
 browser's localStorage, so the shop and the customer cannot yet see the same
