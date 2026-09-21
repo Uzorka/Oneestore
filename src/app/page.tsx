@@ -33,45 +33,58 @@ export default function HomePage() {
       <TopBar />
 
       {/*
-        The hero stacks on a phone and splits in two from `lg`, where a single
-        column would leave the headline stranded in a very wide band.
+        The film is the hero: full width, edge to edge, with everything else
+        standing on top of it.
+
+        Which makes contrast the whole problem. Footage moves, and a frame that
+        was dark when the headline was placed is bright two seconds later — so
+        the text never sits on the video directly. A scrim runs under it,
+        opaque where the words are and clearing towards the far edge, and the
+        headline keeps a shadow besides. Measured rather than eyeballed: every
+        piece of text over the film is checked against WCAG AA.
       */}
-      <section className="bg-tint-teal pt-[74px] md:pt-[82px]">
-        <Container className="flex flex-col gap-8 py-10 lg:flex-row lg:items-center lg:gap-16 lg:py-16">
-          <div className="flex flex-col gap-4 lg:flex-1">
-            <span className="flex w-fit items-center gap-1.5 rounded-full bg-abyss/85 px-3 py-1.5 backdrop-blur-md">
-              <span className="size-1.5 rounded-full bg-[#7FD3C4]" />
-              <span className="text-[11.5px] font-semibold text-salt">Boats landed 5:40 AM</span>
-            </span>
+      <section className="relative isolate flex min-h-[540px] flex-col justify-end overflow-hidden pt-[74px] md:min-h-[600px] md:pt-[82px] lg:h-[82vh] lg:max-h-[780px]">
+        <HeroVideo className="absolute inset-0 -z-20" />
 
-            <h1 className="font-display text-[33px] leading-[1.08] font-semibold md:text-[46px] lg:text-[56px]">
-              Fresh seafood,
-              <br />
-              weighed for you.
-            </h1>
+        {/*
+          Weighted to where the words are rather than laid evenly over the
+          film: opaque across the bottom fifth, clearing by the top. The
+          measurements below are taken against the still fallback, and footage
+          has brighter frames than a still, so the target is real headroom over
+          AA rather than a pass by a hundredth.
+        */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 -z-10 bg-gradient-to-t from-abyss from-20% via-abyss/80 via-60% to-abyss/10"
+        />
 
-            <p className="max-w-prose text-[13.5px] leading-relaxed text-ink-soft md:text-base">
-              Pick the weight. Tell us how to prepare it. It arrives on ice today.
-            </p>
+        <Container className="flex flex-col gap-4 py-10 md:gap-5 md:py-14 lg:max-w-[1460px] lg:py-20">
+          <span className="flex w-fit items-center gap-1.5 rounded-full border border-white/20 bg-abyss/88 px-3 py-1.5 backdrop-blur-md">
+            <span className="size-1.5 rounded-full bg-[#7FD3C4]" />
+            <span className="text-[11.5px] font-semibold text-salt">Boats landed 5:40 AM</span>
+          </span>
 
-            <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center">
-              <ButtonLink href="/shop" size="lg" className="w-full sm:w-auto">
-                Shop today&rsquo;s catch
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9 5l7 7-7 7" />
-                </svg>
-              </ButtonLink>
-              <div className="sm:max-w-sm sm:flex-1">
-                <CutoffBanner />
-              </div>
+          <h1 className="max-w-[16ch] font-display text-[34px] leading-[1.06] font-semibold text-white [text-shadow:0_2px_24px_rgb(11_43_46_/_0.55)] md:text-[52px] lg:text-[64px]">
+            Fresh seafood,
+            <br />
+            weighed for you.
+          </h1>
+
+          <p className="max-w-[42ch] text-[14px] leading-relaxed text-white/90 [text-shadow:0_1px_12px_rgb(11_43_46_/_0.6)] md:text-[17px]">
+            Pick the weight. Tell us how to prepare it. It arrives on ice today.
+          </p>
+
+          <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center">
+            <ButtonLink href="/shop" size="lg" className="w-full sm:w-auto">
+              Shop today&rsquo;s catch
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 5l7 7-7 7" />
+              </svg>
+            </ButtonLink>
+            <div className="sm:max-w-sm sm:flex-1">
+              <CutoffBanner onDark />
             </div>
           </div>
-
-          {/*
-            The film shows on every screen now — on a phone as a poster frame
-            that loads nothing until it is tapped. See HeroVideo for why.
-          */}
-          <HeroVideo className="h-[220px] md:h-[300px] lg:h-[380px] lg:flex-1 xl:h-[440px]" />
         </Container>
       </section>
 

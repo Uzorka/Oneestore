@@ -108,7 +108,7 @@ export function HeroVideo({ className = "" }: { className?: string }) {
   const showFrame = reach === "ok" && mode !== "poster";
 
   return (
-    <div className={`relative overflow-hidden rounded-[26px] ${className}`}>
+    <div className={`relative overflow-hidden ${className}`}>
       {/* The floor: drawn, local, and always there. */}
       <Artwork kind="fish" alt={VIDEO.title} seed="hero" className="absolute inset-0 size-full" />
 
@@ -133,15 +133,32 @@ export function HeroVideo({ className = "" }: { className?: string }) {
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowFullScreen
           loading="lazy"
-          className={`absolute inset-0 size-full border-0 transition-opacity duration-[var(--m-standard)] ${
+          style={
+            mode === "ambient"
+              ? {
+                  /*
+                    Cover, not contain. A 16:9 frame in a box of another shape
+                    leaves bars, so it is sized from the viewport width and
+                    centred, with `minHeight` catching the case where the hero
+                    is taller than 56.25% of the screen. The overflow is
+                    cropped by the section, which is how YouTube's own chrome
+                    ends up outside the visible area.
+                  */
+                  width: "100vw",
+                  height: "56.25vw",
+                  minHeight: "100%",
+                  minWidth: "177.78vh",
+                }
+              : undefined
+          }
+          className={`absolute border-0 transition-opacity duration-[var(--m-standard)] ${
             frameLoaded ? "opacity-100" : "opacity-0"
           } ${
-            // Ambient is decoration: it is scaled past the frame so YouTube's
-            // own chrome sits outside the visible area, and it never takes
-            // the pointer. A film the customer asked for behaves normally.
+            // Ambient is decoration and never takes the pointer. A film the
+            // customer actually asked for behaves normally.
             mode === "ambient"
-              ? "pointer-events-none h-[160%] w-[160%] -translate-x-[18.75%] -translate-y-[18.75%]"
-              : ""
+              ? "pointer-events-none top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+              : "inset-0 size-full"
           }`}
         />
       )}
@@ -153,7 +170,7 @@ export function HeroVideo({ className = "" }: { className?: string }) {
             setFrameLoaded(false);
             setMode("playing");
           }}
-          className="absolute inset-0 flex items-center justify-center bg-abyss/15 transition-colors duration-[var(--m-fast)] hover:bg-abyss/25"
+          className="absolute right-3 bottom-3 flex min-h-11 items-center transition-transform duration-[var(--m-fast)] hover:-translate-y-0.5 md:right-6 md:bottom-6"
         >
           <span className="flex items-center gap-2.5 rounded-full bg-abyss/85 py-3 pr-5 pl-4 backdrop-blur-md">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="text-[#7FD3C4]">
@@ -173,7 +190,7 @@ export function HeroVideo({ className = "" }: { className?: string }) {
             setFrameLoaded(false);
             setMode("playing");
           }}
-          className="absolute right-3 bottom-3 flex min-h-11 items-center gap-2 rounded-full bg-abyss/85 px-4 backdrop-blur-md transition-colors hover:bg-abyss"
+          className="absolute right-3 bottom-3 flex min-h-11 items-center gap-2 rounded-full bg-abyss/85 px-4 backdrop-blur-md transition-colors hover:bg-abyss md:right-6 md:bottom-6"
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7FD3C4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M4 9v6h4l5 4V5L8 9H4z" />

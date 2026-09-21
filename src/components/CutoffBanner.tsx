@@ -12,7 +12,12 @@ import { SAME_DAY_CUTOFF_HOUR, timeToCutoff } from "@/lib/delivery";
  * there frozen and wrong. It ticks every 30 seconds, which is enough for a
  * minute-resolution display without waking the device needlessly.
  */
-export function CutoffBanner() {
+/**
+ * `onDark` is for the hero, where this sits over moving footage. The tinted
+ * panels it uses elsewhere have nothing like enough contrast against a scrim,
+ * so on dark it becomes a glass panel with light type.
+ */
+export function CutoffBanner({ onDark = false }: { onDark?: boolean } = {}) {
   const [left, setLeft] = useState<{ hours: number; minutes: number } | null>(null);
   const [ready, setReady] = useState(false);
 
@@ -34,9 +39,13 @@ export function CutoffBanner() {
 
   if (left === null) {
     return (
-      <div className="flex items-center gap-2.5 rounded-[13px] bg-sand px-3.5 py-3">
-        <ClockIcon className="shrink-0 text-ink-muted" />
-        <span className="text-[12.5px] leading-snug text-ink-soft">
+      <div
+        className={`flex items-center gap-2.5 rounded-[13px] px-3.5 py-3 ${
+          onDark ? "border border-white/20 bg-abyss/88 backdrop-blur-md" : "bg-sand"
+        }`}
+      >
+        <ClockIcon className={`shrink-0 ${onDark ? "text-[#7FD3C4]" : "text-ink-muted"}`} />
+        <span className={`text-[12.5px] leading-snug ${onDark ? "text-salt" : "text-ink-soft"}`}>
           Today&rsquo;s {SAME_DAY_CUTOFF_HOUR} AM cut-off has passed — ordering now is for tomorrow.
         </span>
       </div>
@@ -44,9 +53,13 @@ export function CutoffBanner() {
   }
 
   return (
-    <div className="flex items-center gap-2.5 rounded-[13px] bg-tint-amber px-3.5 py-3">
-      <ClockIcon className="shrink-0 text-amber" />
-      <span className="text-[12.5px] leading-snug text-amber">
+    <div
+      className={`flex items-center gap-2.5 rounded-[13px] px-3.5 py-3 ${
+        onDark ? "border border-white/20 bg-abyss/88 backdrop-blur-md" : "bg-tint-amber"
+      }`}
+    >
+      <ClockIcon className={`shrink-0 ${onDark ? "text-[#F2C879]" : "text-amber"}`} />
+      <span className={`text-[12.5px] leading-snug ${onDark ? "text-salt" : "text-amber"}`}>
         <strong className="font-bold">
           {left.hours > 0 ? `${left.hours}h ` : ""}
           {left.minutes}m left
