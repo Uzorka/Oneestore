@@ -65,8 +65,11 @@ export function CheckoutClient() {
   const [sending, setSending] = useState(false);
   const [, tick] = useState(0);
 
-  // Delivery
+  // Delivery. `savedId` is the address chosen from the book; null means the
+  // customer is typing a new one.
   const [draft, setDraft] = useState<AddressDraft>(EMPTY_DRAFT);
+  const [savedId, setSavedId] = useState<string | null>(null);
+  const [pickedBook, setPickedBook] = useState(false);
   const [touched, setTouched] = useState<Partial<Record<keyof AddressDraft, boolean>>>({});
 
   // Schedule
@@ -132,6 +135,35 @@ export function CheckoutClient() {
       dispatch({ type: "setZone", zoneId: draft.zoneId });
     }
   }, [draft.zoneId, state.zoneId, dispatch]);
+
+  const saved = account.book.addresses;
+
+  /** Fill the form from a saved address rather than asking for it again. */
+  function useSaved(address: (typeof saved)[number]) {
+    setSavedId(address.id);
+    setPickedBook(true);
+    setTouched({});
+    setDraft({
+      zoneId: address.zoneId,
+      street: address.street,
+      landmark: address.landmark,
+      recipientName: address.recipientName,
+      recipientPhone: address.recipientPhone,
+      instructions: address.instructions,
+    });
+  }
+
+  /*
+    Open on the address they used last. A returning customer's common case is
+    the same house as last time, so that is the one already chosen — and the
+    form stays out of the way until they say otherwise.
+  */
+  useEffect(() => {
+    if (pickedBook || saved.length === 0) return;
+
+    const preferred = saved.find((a) => a.id === account.book.selectedId) ?? saved.find((a) => a.isDefault) ?? saved[0];
+    if (preferred !== undefined) useSaved(preferred);
+  }, [pickedBook, saved, account.book.selectedId]);
 
   const errors: AddressErrors = validateAddress(draft);
   const cooldown = resendInSeconds(account.challenge, Date.now());
@@ -235,7 +267,15 @@ export function CheckoutClient() {
     setTouched({ zoneId: true, street: true, landmark: true, recipientName: true, recipientPhone: true });
     if (Object.keys(errors).length > 0) return;
 
-    account.addAddress(draft);
+    /*
+      Only a genuinely new address is added. Reusing a saved one just marks it
+      as the current choice — calling add every time would grow a duplicate of
+      the same house on every order, and the picker above would be unusable
+      within a month.
+    */
+    if (savedId === null) account.addAddress(draft);
+    else account.dispatchAddress({ type: "select", id: savedId });
+
     dispatch({ type: "setZone", zoneId: draft.zoneId });
     setStep(2);
   }
@@ -391,6 +431,67 @@ export function CheckoutClient() {
         <section className="animate-rise flex flex-col gap-4 rounded-card border border-line bg-paper p-4">
           <h2 className="font-display text-[19px] font-semibold md:text-[23px]">Where are we delivering?</h2>
 
+          {/*
+            The book was being written to and never read: every order meant
+            retyping a street and a landmark the shop already had. For somebody
+            buying fish every week that is the whole friction of ordering.
+          */}
+          {saved.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {saved.map((address) => {
+                const on = savedId === address.id;
+                return (
+                  <button
+                    key={address.id}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => useSaved(address)}
+                    className={`flex min-h-14 items-start gap-3 rounded-[13px] px-3.5 py-3 text-left ${
+                      on ? "border-[1.5px] border-lagoon bg-tint-mint" : "border border-line bg-paper"
+                    }`}
+                  >
+                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border-[1.5px] border-lagoon">
+                      {on && <span className="size-2.5 rounded-full bg-lagoon" />}
+                    </span>
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <span className="text-[13px] font-bold">{address.recipientName}</span>
+                      <span className="text-[11.5px] leading-snug text-ink-muted">
+                        {formatAddress(address)}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+
+              <button
+                type="button"
+                aria-pressed={savedId === null && pickedBook}
+                onClick={() => {
+                  setSavedId(null);
+                  setPickedBook(true);
+                  setDraft(EMPTY_DRAFT);
+                  setTouched({});
+                }}
+                className={`flex min-h-12 items-center gap-2 rounded-[13px] px-3.5 text-[12.5px] font-bold ${
+                  savedId === null && pickedBook
+                    ? "border-[1.5px] border-lagoon bg-tint-mint text-lagoon"
+                    : "border border-dashed border-line text-ink-soft"
+                }`}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                Somewhere else
+              </button>
+            </div>
+          )}
+
+          {(saved.length === 0 || savedId === null) && (
+            <div className="h-px bg-rule" />
+          )}
+
+          {savedId === null && (
+          <>
           <div className="flex flex-col gap-2">
             <span className="text-[11.5px] font-semibold text-ink-muted">Area</span>
             <div className="grid gap-2 sm:grid-cols-2">
@@ -449,6 +550,8 @@ export function CheckoutClient() {
             onChange={(v) => setDraft((d) => ({ ...d, recipientName: v }))}
             onBlur={() => setTouched((t) => ({ ...t, recipientName: true }))}
           />
+          </>
+          )}
 
           <Button size="lg" fullWidth onClick={saveAddress}>
             Continue to scheduling

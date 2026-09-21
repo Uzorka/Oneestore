@@ -132,6 +132,7 @@ src/
     wallet.ts             the credit ledger — append-only, never negative
     complaints.ts         the 2-hour window and how one is settled
     catalog.ts            the morning board: draft, publish, overlay
+    reorder.ts            ordering the same thing at today's prices
     rows.ts               database rows <-> domain objects
     supabase.ts           the client, when a project is configured
 supabase/migrations/      the schema, applied and tested on every run
@@ -284,6 +285,13 @@ the same types. Neither is a rewrite — each is one object to replace.
 - M7: the database, as far as it goes without a project. The migrations are no
   longer a file nobody had run — they are applied to a real Postgres in the
   test suite, which found four things worth finding. See **The schema** below.
+
+- M8: the second order. Checkout was writing to the address book and never
+  reading it, so a weekly customer retyped their street and landmark every
+  time; it now opens on the address they used last. **Order again** re-prices
+  the old basket against today's board and shows what moved before anything is
+  added — a shop whose prices change every morning cannot just put the lines
+  back and surprise someone at checkout.
 
 **Next:** connecting it. Everything up to the client is built and tested; what
 is missing is a Supabase project to point at, and the repository layer that

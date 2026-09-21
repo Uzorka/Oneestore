@@ -7,7 +7,9 @@ import { use, useEffect, useState } from "react";
 import { Artwork } from "@/components/Artwork";
 import { useCatalog } from "@/components/CatalogProvider";
 import { useComplaints } from "@/components/ComplaintsProvider";
+import { useCart } from "@/components/CartProvider";
 import { useOrders } from "@/components/OrdersProvider";
+import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ProductCardSkeleton } from "@/components/ui/Skeleton";
@@ -30,6 +32,8 @@ import {
   timeLeftMs,
 } from "@/lib/complaints";
 import type { ComplaintKind } from "@/lib/complaints";
+import { planReorder, stateNote, toCartLines } from "@/lib/reorder";
+import { useRouter } from "next/navigation";
 import { artKindFor, productPhoto } from "@/lib/seed";
 import type { OrderStatus } from "@/lib/types";
 
@@ -159,6 +163,8 @@ export function OrderClient({ params }: { params: Promise<{ id: string }> }) {
               })}
             </div>
           </section>
+
+          <OrderAgain order={order} />
 
           <ReportProblem order={order} />
         </div>
@@ -468,6 +474,134 @@ function ReportProblem({ order }: { order: Order }) {
         </Button>
         <Button variant="tertiary" onClick={() => setOpen(false)}>
           Cancel
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Ordering the same thing again.
+ *
+ * Not a button that silently refills the basket: prices here move every
+ * morning and stock moves with them, so what has changed is shown first.
+ * Someone who tapped this on a ₦19,600 basket and met ₦22,400 at checkout
+ * would be right to feel tricked, and would be right not to come back.
+ */
+function OrderAgain({ order }: { order: Order }) {
+  const { productMap, ready } = useCatalog();
+  const { dispatch, remainingG } = useCart();
+  const toast = useToast();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+
+  if (!ready) return null;
+
+  const plan = planReorder(order, productMap, { remainingG: (id) => remainingG(id) });
+
+  function add() {
+    for (const line of toCartLines(plan)) {
+      dispatch({
+        type: "add",
+        productId: line.productId,
+        prepId: line.prepId,
+        weightG: line.weightG,
+      });
+    }
+
+    toast.show({
+      title: "Back in your basket",
+      detail: `${toCartLines(plan).length} items · ${formatNaira(plan.totalKobo)}`,
+      href: "/basket",
+      actionLabel: "View basket",
+    });
+
+    router.push("/basket");
+  }
+
+  if (!open) {
+    return (
+      <section className="flex flex-col gap-2 rounded-card border border-line bg-paper p-4">
+        <h2 className="text-[15px] font-bold">Want this again?</h2>
+        <p className="text-[12.5px] leading-relaxed text-ink-soft">
+          {plan.anyAvailable
+            ? "We will check today's board first and show you anything that has changed."
+            : "Nothing from this order is on the board today."}
+        </p>
+        {plan.anyAvailable && (
+          <Button variant="secondary" onClick={() => setOpen(true)} className="sm:w-fit">
+            Order again
+          </Button>
+        )}
+      </section>
+    );
+  }
+
+  return (
+    <section className="animate-rise flex flex-col gap-3 rounded-card border border-line bg-paper p-4">
+      <h2 className="text-[15px] font-bold">
+        {plan.changed ? "Some of this has changed" : "Everything is as it was"}
+      </h2>
+
+      <div className="flex flex-col gap-2">
+        {plan.lines.map((line) => {
+          const note = stateNote(line);
+          const gone = line.state === "unavailable";
+
+          return (
+            <div
+              key={`${line.productId}:${line.prepId}`}
+              className={`flex items-center gap-3 rounded-[13px] border px-3.5 py-2.5 ${
+                gone ? "border-line bg-sand opacity-70" : note === null ? "border-line" : "border-[1.5px] border-lagoon bg-tint-teal"
+              }`}
+            >
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="truncate text-[13px] font-bold">{line.productName}</span>
+                <span className="text-[11.5px] text-ink-muted">
+                  {line.prepName} ·{" "}
+                  {gone ? formatWeight(line.previousWeightG) : formatWeight(line.weightG)}
+                  {line.state === "reduced" && ` (you ordered ${formatWeight(line.previousWeightG)})`}
+                </span>
+                {note !== null && (
+                  <span className="text-[11px] font-semibold text-lagoon">{note}</span>
+                )}
+              </span>
+
+              <span className="flex shrink-0 flex-col items-end gap-0.5">
+                {gone ? (
+                  <span className="text-[12px] font-bold text-ink-muted">—</span>
+                ) : (
+                  <>
+                    <span className="text-[13.5px] font-bold">{formatNaira(line.totalKobo)}</span>
+                    {line.totalKobo !== line.previousTotalKobo && (
+                      <span className="text-[11px] text-ink-muted line-through">
+                        {formatNaira(line.previousTotalKobo)}
+                      </span>
+                    )}
+                  </>
+                )}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex items-baseline gap-2 pt-0.5">
+        <span className="flex-1 text-[13px] font-bold">Today</span>
+        {plan.totalKobo !== plan.previousTotalKobo && (
+          <span className="text-[12px] text-ink-muted line-through">
+            {formatNaira(plan.previousTotalKobo)}
+          </span>
+        )}
+        <span className="font-display text-[19px] font-semibold">{formatNaira(plan.totalKobo)}</span>
+      </div>
+
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Button disabled={!plan.anyAvailable} onClick={add}>
+          Add to basket
+        </Button>
+        <Button variant="tertiary" onClick={() => setOpen(false)}>
+          Not now
         </Button>
       </div>
     </section>
