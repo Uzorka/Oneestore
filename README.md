@@ -134,7 +134,10 @@ src/
     catalog.ts            the morning board: draft, publish, overlay
     reorder.ts            ordering the same thing at today's prices
     rows.ts               database rows <-> domain objects
-    supabase.ts           the client, when a project is configured
+    supabase.ts           the browser client, when a project is configured
+  server/
+    sql.ts                the executor seam and the connection pool
+    repository.ts         every read and write, as SQL
 supabase/migrations/      the schema, applied and tested on every run
 supabase/seed.sql         the catalog, generated from seed.ts
     seed.ts               placeholder catalog
@@ -181,6 +184,34 @@ things:
 The tests also hold the database and the code together: the order statuses in
 `ORDER_FLOW` and the ones the `orders` check constraint allows must be the same
 set, or a packer's write fails at six in the morning.
+
+### The database layer
+
+`src/server/repository.ts` holds every read and write as SQL. It never holds a
+connection — it is handed a `SqlExecutor`, which in production is a `pg.Pool`
+against Supabase and in the tests is the same `pg.Pool` against an in-process
+Postgres served over a TCP socket. The code under test is therefore the code
+that runs, down to the wire protocol, the parameter binding and the
+constraints. The only line the tests do not cover is the connection string.
+
+Running it found three more things:
+
+- **The address had nowhere to put the recipient.** Checkout asks "who should
+  the rider ask for?" as a required field, and `addresses` had no column for
+  it, nor for the recipient's number or the delivery instructions. `0003` adds
+  them — and moves "an address without a landmark is never saved" out of a
+  validation function and into a check constraint, where it cannot be
+  bypassed.
+- **A parameter the statement never used.** Postgres cannot infer its type and
+  rejects the whole query. It only appears when the query is run.
+- **A rating multiplied by the number of preparations.** Joining reviews
+  alongside `prep_options` inflates every average, and the result still looks
+  like a plausible rating.
+
+Money moves in a transaction: placing an order writes the order, its lines, its
+first event and any wallet spend, or none of it. There is a test that throws
+half way through and asserts the wallet is untouched — a customer whose credit
+was spent by an order that did not save has lost money twice.
 
 ### Connecting a project
 
@@ -293,9 +324,13 @@ the same types. Neither is a rewrite — each is one object to replace.
   added — a shop whose prices change every morning cannot just put the lines
   back and surprise someone at checkout.
 
-**Next:** connecting it. Everything up to the client is built and tested; what
-is missing is a Supabase project to point at, and the repository layer that
-reads and writes through it instead of localStorage. Paystack after that.
+- M9: the repository. Every read and write the shop needs, written as SQL
+  against the migrations and **run** in the tests through the same `pg` driver
+  that will talk to Supabase — see **The database layer** below.
+
+**Next:** pointing the screens at it. The repository is built and tested; the
+providers still read localStorage. That swap is mechanical now, and it needs a
+`DATABASE_URL` to be worth doing. Paystack after that.
 
 All catalog data is **placeholder**. Prices, stock, ratings, the ±8% band, zone
 fees, the 11 AM cut-off, the box tiers (3 kg → 5%, 5 kg → 10%) and the per-serving
