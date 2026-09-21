@@ -8,7 +8,8 @@
 -- storefront reads with the anon key; anything that writes an order or a packed
 -- weight runs server-side with the service role.
 
-create extension if not exists "pgcrypto";
+-- gen_random_uuid() is built in from Postgres 13, so no extension is
+-- needed — and not asking for one keeps this runnable without superuser.
 
 -- ---------------------------------------------------------------------------
 -- Catalog

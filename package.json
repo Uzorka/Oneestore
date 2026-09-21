@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "ONEESTORE — fresh seafood, sold by the kilogram, delivered same-day across Lagos.",
+  "description": "ONEESTORE \u2014 fresh seafood, sold by the kilogram, delivered same-day across Lagos.",
   "engines": {
     "node": ">=20"
   },
@@ -14,14 +14,17 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "npm run typecheck && npm run test"
+    "check": "npm run typecheck && npm run test",
+    "seed:sql": "tsx scripts/gen-seed-sql.mts"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
     "next": "^16.3.5",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^26.6.2",
     "@types/react": "^19.3.0",

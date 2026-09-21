@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 
 import { Container } from "@/components/Container";
 import { Wordmark } from "@/components/TopBar";
+import { isConfigured } from "@/lib/supabase";
 
 /**
  * Operations.
@@ -81,6 +82,27 @@ export function AdminShell({
             })}
           </ul>
         </nav>
+
+        {!isConfigured() && (
+          /*
+            Said plainly, where the shop works. Everything on these screens is
+            held in this one browser: another phone sees a different shop, and
+            a cleared browser is a cleared shop. Nobody should mistake this for
+            something taking real orders.
+          */
+          <div className="flex gap-2.5 rounded-card border-[1.5px] border-[#F0DFBE] bg-[#FBEFD8] p-3.5">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#92500C" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="mt-px shrink-0">
+              <path d="M12 8.5v4.5M12 16.5v.5" />
+              <circle cx="12" cy="12" r="9" />
+            </svg>
+            <span className="text-[12px] leading-snug text-[#6E3D08]">
+              <strong className="font-bold">No database connected.</strong> Orders, the wallet,
+              complaints and the price board are held in this browser only — another device sees a
+              different shop, and clearing the browser clears all of it. Set the Supabase keys in
+              <code className="px-1 font-mono text-[11px]">.env.local</code> to make this real.
+            </span>
+          </div>
+        )}
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-4">
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">

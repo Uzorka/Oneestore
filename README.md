@@ -132,6 +132,10 @@ src/
     wallet.ts             the credit ledger — append-only, never negative
     complaints.ts         the 2-hour window and how one is settled
     catalog.ts            the morning board: draft, publish, overlay
+    rows.ts               database rows <-> domain objects
+    supabase.ts           the client, when a project is configured
+supabase/migrations/      the schema, applied and tested on every run
+supabase/seed.sql         the catalog, generated from seed.ts
     seed.ts               placeholder catalog
 supabase/migrations/      schema with RLS
 ```
@@ -150,6 +154,44 @@ reads as a shelf instead of ten copies of one placeholder. **No stock
 photography is shipped, deliberately.** A photo of a fish we did not catch,
 sold under a promise about the fish we did, is the one thing here that would
 be a lie.
+
+### The schema
+
+`supabase/migrations/` is applied to a real Postgres (PGlite, in-process) by
+`npm test`, and then asked questions. Running it for the first time found four
+things:
+
+- **An extension it did not need.** `pgcrypto` for `gen_random_uuid()`, which
+  has been built in since Postgres 13. Asking for it needs privileges the
+  migration should not want.
+- **The wallet balance in two places.** `wallet_ledger` carried the comment
+  "Balance is the sum of the ledger, never a field someone edits" — and
+  `customers.wallet_balance_kobo` was exactly such a field. Two sources of
+  truth for money drift, and the one that drifts is the one the customer sees.
+  The column is gone; `customer_wallet_balances` derives it.
+- **Six tables with row-level security off.** In Supabase a table in `public`
+  without RLS is world-readable through the anon key, and `riders` and
+  `deliveries` hold names, phone numbers and addresses. A test now fails if any
+  table in `public` has it off.
+- **A line with nowhere to point.** `order_items.product_id` is a non-null
+  foreign key; the mapper was not setting it. Found by writing a real order
+  through the real schema rather than by reading the code.
+
+The tests also hold the database and the code together: the order statuses in
+`ORDER_FLOW` and the ones the `orders` check constraint allows must be the same
+set, or a packer's write fails at six in the morning.
+
+### Connecting a project
+
+```bash
+cp .env.example .env.local     # fill in the two NEXT_PUBLIC_ values
+supabase db push               # or paste supabase/migrations/*.sql into the SQL editor
+psql "$DATABASE_URL" -f supabase/seed.sql
+```
+
+Without those values the app runs entirely on seed data and browser storage,
+and `/admin` says so at the top of every screen — everything works, but each
+device is its own shop.
 
 ### Design language
 
@@ -239,10 +281,13 @@ the same types. Neither is a rewrite — each is one object to replace.
   records the complaint in one action, and declining demands a reason the
   customer reads.
 
-**Next:** the table behind all of it. Orders and the price board live in one
-browser's localStorage, so the shop and the customer cannot yet see the same
-thing — every screen is built, the database is not. That is Supabase, and
-Paystack after it.
+- M7: the database, as far as it goes without a project. The migrations are no
+  longer a file nobody had run — they are applied to a real Postgres in the
+  test suite, which found four things worth finding. See **The schema** below.
+
+**Next:** connecting it. Everything up to the client is built and tested; what
+is missing is a Supabase project to point at, and the repository layer that
+reads and writes through it instead of localStorage. Paystack after that.
 
 All catalog data is **placeholder**. Prices, stock, ratings, the ±8% band, zone
 fees, the 11 AM cut-off, the box tiers (3 kg → 5%, 5 kg → 10%) and the per-serving
